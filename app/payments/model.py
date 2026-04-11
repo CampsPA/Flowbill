@@ -1,0 +1,21 @@
+from app.database import Base
+from sqlalchemy.orm import relationship,  Mapped, mapped_column
+from datetime import datetime
+from typing import Optional 
+from sqlalchemy.sql import func
+from app.core.enums import PaymentAttemptStatus
+from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey
+
+
+class PaymentAttempt(Base):
+    __tablename__ = "payment_attempts"
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[PaymentAttemptStatus] = mapped_column(SQLAlchemyEnum(PaymentAttemptStatus))
+    failure_reason: Mapped[Optional[str]] = mapped_column()
+    stripe_payment_intent_id: Mapped[str] = mapped_column(unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship
+    invoice = relationship("Invoice", back_populates="payment_attempts")

@@ -1,0 +1,43 @@
+services:
+  # app:
+  #   build: .
+  #   ports: 
+  #     - "8000:8000"
+  #   environment:
+  #     - DATABASE_HOSTNAME=db # hardcode, not a reference
+  #     - DATABASE_PORT=${DATABASE_PORT}
+  #     - DATABASE_PASSWORD=${DATABASE_PASSWORD} 
+  #     - DATABASE_NAME=${DATABASE_NAME}
+  #     - DATABASE_USERNAME=${DATABASE_USERNAME}
+  #     - SECRET_KEY=${SECRET_KEY}
+  #     - ALGORITHM=${ALGORITHM}
+  #     - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+  #     - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+  #     - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+  #     - SENTRY_DSN=${SENTRY_DSN}
+  #     - APP_ENV=${APP_ENV}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+     
+
+  
+  db:
+    image: postgres:18.2
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=${DATABASE_USERNAME}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
+      
+    volumes:
+      - postgres_data:/var/lib/postgresql/18/docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}"]
+      interval: 5s # check every 5 seconts for fast feedback
+      timeout: 5s # wait 5 seconds for a response before counting as failed
+      retries: 5 # try 5 times before making unhealthy
+      start_period: 10s # wait 10 seconds before starting health checks.
+volumes:
+  postgres_data: # This registers the named volume with Docker Compose.
