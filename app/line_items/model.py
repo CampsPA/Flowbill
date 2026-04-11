@@ -10,6 +10,7 @@ class LineItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
     description: Mapped[str] = mapped_column()
+    
     amount_cents: Mapped[int] = mapped_column()
     quantity: Mapped[int] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

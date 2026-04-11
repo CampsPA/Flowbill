@@ -8,6 +8,7 @@ from app.customers.router import router as customers_router
 from app.plans.router import router as plans_router
 from app.subscriptions.router import router as subscriptions_router
 from app.invoices.router import router as invoices_router
+from app.line_items.router import router as line_items_router
 #from app.logger import setup_logging
 # SlowAPI
 #from app.limiter import limiter
@@ -108,6 +109,9 @@ logger.info("Subscriptions router successfully registered")
 
 app.include_router(invoices_router, prefix="/invoices")
 logger.info("Invoices router successfully registered")
+
+app.include_router(line_items_router, prefix="/line_items")
+logger.info("Line items router successfully registered")
 
 
 
