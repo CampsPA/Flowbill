@@ -1,0 +1,24 @@
+
+----------------General notes on proration------------------------------
+
+Proration in the context of a subscription billing system:
+
+Proration in a subscription billing system is the method of calculating a charge or credit 
+proportionally based on the partial period of service a customer uses rather than the full, 
+standard billing cycle. It ensures that customers are billed accurately when they start, stop, 
+or change their subscription plans in the middle of a billing cycle.
+
+Formula:
+
+daily_rate = plan_price_cents / days_in_period
+remaining_days = period_end - today
+proration_amount = daily_rate * remaining_days
+
+Example:
+
+- Customer on current plan for $30/month -> 30 days
+- Upgrades to a plan with $60/month after 15 days into the current plan
+- Because he used 1/2 of the current plan he is charged for that perio (15 days)
+- Customers receives credit for the 15 days he didn't use ($15)
+- Then he is charged in full for the remaining 1/2 of the upgraded plan, $30
+- In the end the net charge is $30 (upgarded plan) - $15 (credit) = $15 Net charge.

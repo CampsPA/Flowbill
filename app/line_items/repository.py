@@ -29,6 +29,7 @@ def get_line_item_by_id(db : Session, line_item_id : int):
 
 
 # Get line items by invoice (filter by invoice_id)
+
 def get_line_item_by_invoice(db : Session, invoice_id : int):
     line_item = db.execute(select(LineItem).where(LineItem.invoice_id == invoice_id)).scalars().all()
     return line_item
