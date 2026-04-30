@@ -9,6 +9,8 @@ from app.plans.router import router as plans_router
 from app.subscriptions.router import router as subscriptions_router
 from app.invoices.router import router as invoices_router
 from app.line_items.router import router as line_items_router
+from app.webhooks.router import router as webhook_router
+from app.webhooks.router import router as stripe_receiver_router
 #from app.logger import setup_logging
 # SlowAPI
 #from app.limiter import limiter
@@ -29,6 +31,11 @@ from app.auth.model import User
 # APScheduler
 from contextlib import asynccontextmanager # to use the lifespan function
 from apscheduler.schedulers.asyncio import  AsyncIOScheduler # since fast api runs on asyncio and I needed the scheduler to share the same event loop
+# Cycle runner
+from app.billing.cycle_runner import run_billing_cycle
+# Duning
+from app.billing.dunning import run_dunning
+
 
 
 # Initialize Sentry
@@ -54,8 +61,10 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     # App startup complete
     logger.info("Flowbill starting up.")
-    # Add a job
-    #scheduler.add_job(run_billing_cycle, 'interval', hours=24)
+    # Add a run_billing_cyc;e_job
+    scheduler.add_job(run_billing_cycle, 'interval', hours=24) # comes from cycle_runner billing cycle function.
+    # add duuning job
+    scheduler.add_job(run_dunning, 'interval', hours=24)
     yield
     # shut down the scheduler
     scheduler.shutdown()
@@ -112,6 +121,12 @@ logger.info("Invoices router successfully registered")
 
 app.include_router(line_items_router, prefix="/line_items")
 logger.info("Line items router successfully registered")
+
+app.include_router(webhook_router, prefix="/webhooks")
+logger.info("Webhooks router successfully registered")
+
+app.include_router(stripe_receiver_router, prefix="/stripe/webhook")
+logger.info("Stripe webhook router successfully registered")
 
 
 

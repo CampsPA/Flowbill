@@ -15,6 +15,7 @@ logger = logging.getLogger("app.customers.service")
 def create_customer(db : Session, customer: CustomerCreate):
     # Check user email, if user exists raise error, if not create user
     existing_customer = repository.get_customer_by_email(db, customer.email)
+    
     if  existing_customer is not None:
         logger.info("Customer with email address already registered.")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Email already registered")

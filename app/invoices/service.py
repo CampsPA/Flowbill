@@ -10,6 +10,10 @@ from app.core.enums import InvoiceStatus
 # Check for create_invoice
 from app.customers import repository as customers_repository # existing customer
 from app.subscriptions import repository as subscriptions_repository # existing subscription
+from sqlalchemy import select
+from app.invoices.model import Invoice 
+from datetime import datetime
+
 
 logger = logging.getLogger("app.invoices.service")
 
@@ -56,5 +60,48 @@ def update_invoice(db : Session, invoice_id : int, invoice_update : InvoiceUpdat
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
     return repository.update_invoice(db, invoice_id, invoice_update)
+
+# Update invoices at stripe_receiver.py
+def mark_invoice_paid(db : Session, invoice_id : int):
+    invoice = db.execute(select(Invoice).where(Invoice.id == invoice_id)).scalar_one_or_none()
+
+    if invoice is None:
+        logger.info(f"No invoice found with id {invoice_id}.")
+        return None
+    else:
+        logger.info(f"Invoice with invoice_id {invoice_id} successfully retrieved.")
+    
+
+    # Set the status
+    invoice.status = InvoiceStatus.PAID
+    invoice.paid_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+def mark_invoice_open(db : Session, invoice_id : int):
+    invoice = db.execute(select(Invoice).where(Invoice.id == invoice_id)).scalar_one_or_none()
+
+    if invoice is None:
+        logger.info(f"No invoice found with id {invoice_id}.")
+        return None
+    else:
+        logger.info(f"Invoice with invoice_id {invoice_id} successfully retrieved.")
+
+
+
+    # Set the status
+    invoice.status = InvoiceStatus.OPEN
+    
+
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+    
+
 
 
