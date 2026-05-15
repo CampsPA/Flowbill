@@ -2,9 +2,10 @@
 
 from app.plans import repository # this imports all functions from repository.py
 from app.plans.schemas import PlanCreate, PlanUpdate
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 import logging
+# Custom exceptions
+from app.core.exceptions import DuplicateRecord, ResourceNotFound
 
 
 logger = logging.getLogger("app.plans.service")
@@ -15,7 +16,8 @@ def create_plan(db : Session, plan: PlanCreate):
     existing_plan = repository.get_plan_by_name(db, plan.name)
     if  existing_plan is not None:
         logger.info(f"Plan with name {plan.name} already registered.")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Name already registered")
+        raise DuplicateRecord("name", plan.name)
+        
     
     return repository.create_plan(db, plan)
 
@@ -41,7 +43,7 @@ def update_plan(db: Session, plan_id : int, plan_update : PlanUpdate):
     plan = repository.get_plan_by_id(db, plan_id)
 
     if plan is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
+        raise ResourceNotFound("Plan", plan_id)
     return repository.update_plan(db, plan_id, plan_update)
 
 
@@ -50,5 +52,5 @@ def deactivate_plan(db: Session, plan_id : int):
     plan = repository.get_plan_by_id(db, plan_id)
 
     if plan is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+        raise ResourceNotFound("Plan", plan_id)
     return repository.deactivate_plan(db, plan_id)

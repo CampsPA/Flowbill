@@ -5,7 +5,7 @@ from app.database import get_db
 from sqlalchemy.orm import Session
 import logging
 from fastapi.security import OAuth2PasswordBearer
-from app.auth.service import verify_access_token
+from app.core.security import verify_access_token
 from sqlalchemy import select
 
 # Get a logger instance

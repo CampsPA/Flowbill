@@ -2,7 +2,8 @@ from fastapi import Depends, status, HTTPException, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
 from app.auth.schemas import UserCreate, UserResponse, Token
 from sqlalchemy.orm import Session
-from app.auth.service import verify_password , create_access_token, create_user, get_user_by_email
+from app.auth.service import  create_user, get_user_by_email
+from app.core.security import verify_password , create_access_token
 from app.database import get_db
 import logging
 # from ..limiter import limiter - it will be created at phase 6

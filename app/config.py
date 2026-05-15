@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     database_name: str
     database_username: str
 
+    # Test Database
+    test_database_name: str
+
     # Auth
     secret_key: str
     algorithm: str

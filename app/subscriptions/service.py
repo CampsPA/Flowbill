@@ -3,7 +3,6 @@
 
 from app.subscriptions import repository # this imports all functions from repository.py
 from app.subscriptions.schemas import SubscriptionCreate, SubscriptionUpdate
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 from datetime import datetime, timezone, timedelta
@@ -11,6 +10,8 @@ from app.core.enums import SubscriptionStatus, PlanInterval
 # Check for create_subscription
 from app.customers import repository as customers_repository # existing customer
 from app.plans import repository as plans_repository # existing plan
+# Custom exceptions
+from app.core.exceptions import ResourceNotFound
 
 logger = logging.getLogger("app.subscriptions.service")
 
@@ -21,15 +22,16 @@ def create_subscription(db : Session, subscription : SubscriptionCreate, ):
 
     if  existing_customer is None:
         logger.info(f"Customer with {subscription.customer_id} does not exist.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Customer not found")
+        raise ResourceNotFound("Customer", subscription.customer_id)
+        
 
 
     # Verify plan exists
     existing_plan = plans_repository.get_plan_by_id(db, subscription.plan_id)
 
     if existing_plan is  None:
-        logger.info(f"Plan with {subscription.plan_id} doe snot exist.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plan not found.")
+        logger.info(f"Plan with {subscription.plan_id} does snot exist.")
+        raise ResourceNotFound("Plan", subscription.plan_id)
     
     # Calculate period dates
     # Set starting period
@@ -61,7 +63,7 @@ def update_subscription(db : Session, subscription_id : int, subscription_update
     subscription =  repository.get_subscription_by_id(db, subscription_id)
 
     if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found.")
+        raise ResourceNotFound("Subscription", subscription_id)
     return repository.update_subscription(db, subscription_id, subscription_update)
 
 
@@ -70,6 +72,6 @@ def cancel_subscription(db : Session, subscription_id : int):
     subscription = repository.get_subscription_by_id(db, subscription_id)
 
     if subscription is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
+        raise ResourceNotFound("Subscription", subscription_id)
     return repository.cancel_subscription(db, subscription_id)
 

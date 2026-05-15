@@ -3,7 +3,6 @@
 
 from app.invoices import repository # this imports all functions from repository.py
 from app.invoices.schemas import InvoiceCreate, InvoiceUpdate
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 from app.core.enums import InvoiceStatus
@@ -13,9 +12,12 @@ from app.subscriptions import repository as subscriptions_repository # existing 
 from sqlalchemy import select
 from app.invoices.model import Invoice 
 from datetime import datetime
+# Custom exceptions
+from app.core.exceptions import ResourceNotFound
 
 
 logger = logging.getLogger("app.invoices.service")
+
 
 # Create invoice
 def create_invoice(db : Session, invoice : InvoiceCreate):
@@ -24,14 +26,15 @@ def create_invoice(db : Session, invoice : InvoiceCreate):
 
     if existing_customer is None:
         logger.info(f"Customer with {invoice.customer_id} does not exist.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Customer not found")
+        raise ResourceNotFound("Customer", invoice.customer_id)
+        
     
     # Verify existing subscription
     existing_subscription = subscriptions_repository.get_subscription_by_id(db, invoice.subscription_id)
 
     if existing_subscription is None:
         logger.info(f"Subscription with {invoice.subscription_id} does not exist.")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Subscription not found")
+        raise ResourceNotFound("Subscription", invoice.subscription_id)
     
     ## Activate invoice
     invoice_status = InvoiceStatus.OPEN
@@ -58,7 +61,7 @@ def update_invoice(db : Session, invoice_id : int, invoice_update : InvoiceUpdat
     invoice =  repository.get_invoice_by_id(db, invoice_id)
 
     if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+        raise ResourceNotFound("Invoice", invoice_id)
     return repository.update_invoice(db, invoice_id, invoice_update)
 
 # Update invoices at stripe_receiver.py

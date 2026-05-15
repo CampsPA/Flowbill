@@ -13,7 +13,6 @@
 
  # this imports all functions from repository.py
 from app.webhooks.schemas import WebhookEndpointCreate, WebhookEndpointUpdate
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 from app.webhooks import repository as webhook_repository
@@ -22,6 +21,8 @@ from datetime import datetime
 from sqlalchemy import select
 from app.webhooks.model import WebhookEndpoint
 import httpx
+# Custom exceptions
+from app.core.exceptions import DuplicateRecord
 
 
 logger = logging.getLogger("app.webhooks.service")
@@ -34,8 +35,8 @@ def create_webhook_endpoint(db : Session, endpoint : WebhookEndpointCreate, cust
 
     if  existing_url is not None:
         logger.info("Endpoint with this url is already registered.")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Url already registered")
-    
+        raise DuplicateRecord("url", endpoint.url)
+        
     return webhook_repository.create_webhook_endpoint(db, endpoint, customer_id) # here I call endpoint beacuse I'm creating the endpoint
 
 
