@@ -12,6 +12,7 @@ from app.line_items.model import LineItem
 from app.payments.model import PaymentAttempt
 from app.webhooks.model import WebhookEndpoint, WebhookDelivery
 from app.auth.model import User
+from app.tenant_settings.model import TenantSettings
 
 
 config = context.config

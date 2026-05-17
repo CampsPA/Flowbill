@@ -16,7 +16,7 @@ class Subscription(Base):
     status: Mapped[SubscriptionStatus] = mapped_column(SQLAlchemyEnum(SubscriptionStatus))
     current_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True)) 
     current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    cancel_at_period_end: Mapped[bool] = mapped_column(default=False) # Default is false because we don't wnat the subscrition to cancel at the end, we wnat to renew it.
+    cancel_at_period_end: Mapped[bool] = mapped_column(default=False) # Default is false because we don't want the subscrition to cancel at the end, we wnat to renew it.
     cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True)) # This is optional because thius date is not defined when the table is created
     paused_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True)) # This is optional because thius date is not defined when the table is created
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),server_default=func.now()) # Uses server_default=func.now() beacuse it sets the date that the event was created

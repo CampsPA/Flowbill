@@ -12,6 +12,7 @@ from app.line_items.router import router as line_items_router
 from app.webhooks.router import router as webhook_router
 from app.webhooks.stripe_receiver import router as stripe_receiver_router
 from app.payments.router import router as payments_router
+from app.tenant_settings.router import router as tenant_settings_router
 # Import logging
 from app.core.logging import setup_logging 
 # SlowAPI
@@ -31,6 +32,7 @@ from app.line_items.model import LineItem
 from app.payments.model import PaymentAttempt
 from app.webhooks.model import WebhookEndpoint, WebhookDelivery
 from app.auth.model import User
+from app.tenant_settings.model import TenantSettings
 # APScheduler
 from contextlib import asynccontextmanager # to use the lifespan function
 from apscheduler.schedulers.asyncio import  AsyncIOScheduler # since fast api runs on asyncio and I needed the scheduler to share the same event loop
@@ -152,7 +154,7 @@ logger.info("Subscriptions router successfully registered")
 app.include_router(invoices_router, prefix="/invoices")
 logger.info("Invoices router successfully registered")
 
-app.include_router(line_items_router, prefix="/line_items")
+app.include_router(line_items_router, prefix="/line-items")
 logger.info("Line items router successfully registered")
 
 app.include_router(webhook_router, prefix="/webhooks")
@@ -163,6 +165,9 @@ logger.info("Stripe webhook router successfully registered")
 
 app.include_router(payments_router, prefix="/payments")
 logger.info("Payments router successfully registered")
+
+app.include_router(tenant_settings_router, prefix="/tenant-settings")
+logger.info("Tenant settings router successfully registered")
 
 
 
