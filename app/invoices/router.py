@@ -8,6 +8,8 @@ from app.database import get_db
 import logging
 from app.invoices import service
 # from ..limiter import limiter - it will be created at phase 6
+# PDF router
+from fastapi.responses import Response
 
 
 # Get a logger instance
@@ -22,6 +24,15 @@ router = APIRouter(tags=['Invoices'])
 #@limiter.limit("5/minute")
 def create_invoice(invoice_data: InvoiceCreate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.create_invoice(db, invoice_data)
+
+
+# PDF endpoint step #14 PDF document
+@router.get('/{invoice_id}/pdf')
+#@limiter.limit("5/minute")
+def pdf_creation(invoice_id: int , customer_id: int , db: Session = Depends(get_db),current_user = Depends(get_current_user)):
+    pdf_bytes = service.get_invoice_pdf(db, invoice_id, customer_id)
+    return Response(content=pdf_bytes, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename=invoice_{invoice_id}.pdf'})
+
 
 
 # Get invoice by id
@@ -50,6 +61,9 @@ def get_invoice_by_subscription(subscription_id : int, db:Session = Depends(get_
 #@limiter.limit("5/minute")
 def update_invoice(invoice_id : int, invoice_update : InvoiceUpdate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.update_invoice(db, invoice_id, invoice_update)
+
+
+
 
 
 # Note on Avoiding conflicting paths

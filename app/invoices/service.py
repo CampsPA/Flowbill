@@ -14,6 +14,11 @@ from app.invoices.model import Invoice
 from datetime import datetime
 # Custom exceptions
 from app.core.exceptions import ResourceNotFound
+# Imports for the get_invoice_pdf() function
+from app.tenant_settings import repository  as tenant_settings_repository
+from app.core.pdf import generate_invoice_pdf
+from app.core.exceptions import PermissionDeniedError
+# We also use ResourceNotFound imported above
 
 
 logger = logging.getLogger("app.invoices.service")
@@ -102,6 +107,28 @@ def mark_invoice_open(db : Session, invoice_id : int):
     db.commit()
     db.refresh(invoice)
     return invoice
+
+
+# Add function get_invoice_pdf()
+def get_invoice_pdf(db : Session, invoice_id : int, current_customer_id : int):
+    invoice =  repository.get_invoice_by_id(db, invoice_id)
+
+    if invoice is None:
+        raise ResourceNotFound("Invoice", invoice_id)
+    
+
+    if invoice.customer_id != current_customer_id:
+        raise PermissionDeniedError( current_customer_id, "Invoice")
+    
+    tenant_settings = tenant_settings_repository.get_by_customer_id(db, invoice.customer_id)
+
+    customer = customers_repository.get_customer_by_id(db, invoice.customer_id)
+
+    return generate_invoice_pdf(invoice, customer, tenant_settings)
+
+    
+
+
 
 
     
