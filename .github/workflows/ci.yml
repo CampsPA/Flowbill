@@ -27,8 +27,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-          DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
-          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+          DATABASE_HOSTNAME: localhost
+          DATABASE_PORT: 5432
           DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
           DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
