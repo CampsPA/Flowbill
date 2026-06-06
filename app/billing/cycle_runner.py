@@ -17,7 +17,11 @@ from app.core.email import send_invoice_email
 from app.core.pdf import generate_invoice_pdf
 from app.customers import repository as customer_repository
 from app.tenant_settings import repository as tenant_settings_repository
-
+from app.line_items.model import LineItem
+from app.webhooks.model import WebhookEndpoint, WebhookDelivery
+from app.auth.model import User
+from app.customers.model import Customer
+from app.tenant_settings.model import TenantSettings
 
 
 logger = logging.getLogger("app.billing.cycle_runner")
@@ -71,7 +75,6 @@ def run_billing_cycle():
 
 
                 # Generate PDF bytes -> fetch customer by id, tenants_settings by customer_id, use new_invoice instead of invoice
-
                 try:
                     customer = customer_repository.get_customer_by_id(db,new_invoice.customer_id)
                     tenant_settings = tenant_settings_repository.get_by_customer_id(db, new_invoice.customer_id)
@@ -81,6 +84,11 @@ def run_billing_cycle():
 
                 except Exception as e:
                     logger.error(f'Email failed for invoice {new_invoice.id}: {e}')
+
+                # To test this trigger the billing cycle manually:
+                # python -c "from app.billing.cycle_runner import run_billing_cycle; run_billing_cycle()"
+                # run the app to check the logs to see the output
+                
 
 
 

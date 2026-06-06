@@ -18,8 +18,8 @@ def send_invoice_email(customer, invoice, pdf_bytes):
     encoded_bytes = base64.b64encode(pdf_bytes).decode('utf-8')
 
     params = {
-        "from": "sender@example.com",
-        "to": [customer.email],
+        "from": "user@mail.com" ,
+        "to": [customer.email], 
         "subject": f"Invoice #{invoice.id}",
         "text": "Please find your invoice attached.",
         "attachments" : [
@@ -31,6 +31,9 @@ def send_invoice_email(customer, invoice, pdf_bytes):
     result = resend.Emails.send(params)
     return result
     
+
+
+
     
     
     

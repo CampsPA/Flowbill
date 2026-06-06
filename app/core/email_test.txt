@@ -1,0 +1,36 @@
+To test the email sending feature, paste this into the command line:
+
+python -c "
+from app.core.logging import setup_logging
+setup_logging()
+from app.database import SessionLocal
+from app.customers.model import Customer
+from app.plans.model import Plan
+from app.subscriptions.model import Subscription
+from app.invoices.model import Invoice
+from app.line_items.model import LineItem
+from app.payments.model import PaymentAttempt
+from app.webhooks.model import WebhookEndpoint, WebhookDelivery
+from app.auth.model import User
+from app.tenant_settings.model import TenantSettings
+from app.customers import repository as customer_repository
+from app.tenant_settings import repository as tenant_settings_repository
+from app.core.pdf import generate_invoice_pdf
+from app.core.email import send_invoice_email
+from sqlalchemy import select
+db = SessionLocal()
+customer = customer_repository.get_customer_by_id(db, 3)
+invoice = db.execute(select(Invoice).where(Invoice.id == 1)).scalar_one_or_none()
+tenant_settings = tenant_settings_repository.get_by_customer_id(db, 3)
+pdf_bytes = generate_invoice_pdf(invoice, customer, tenant_settings)
+result = send_invoice_email(customer, invoice, pdf_bytes)
+print(result)
+db.close()
+"
+
+
+Also use these for testing : 
+
+
+"from": "onboarding@resend.dev" 
+"to": ["campos.paul@outlook.com"], 
