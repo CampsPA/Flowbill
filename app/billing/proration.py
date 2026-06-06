@@ -15,14 +15,17 @@ from datetime import datetime, timezone, timedelta
 
 # Create the proration function
 def calculate_proration(current_plan_price_cents : int, new_plan_price_cents : int, 
-                        current_period_start : datetime, current_period_end : datetime) -> int:
+                        current_period_start : datetime, current_period_end : datetime, now: datetime = None) -> int:
+    
+    if now is None:
+        now = datetime.now(timezone.utc)
     
     # The current_period_start and end were alredy calculated in subscriptions/service.py
     # inside create_subscriptio()
     
     # Calculate days in the priod and remaining days
     days_in_period = (current_period_end - current_period_start).days
-    remaining_days = (current_period_end - datetime.now(timezone.utc)).days
+    remaining_days = (current_period_end - now).days
 
     # Calculate daily rate for the current and new plan
     current_daily_rate = current_plan_price_cents / days_in_period
