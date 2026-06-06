@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     database_password: str
     database_name: str
     database_username: str
+    resend_api_key: str
 
     # Test Database
     test_database_name: str

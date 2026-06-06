@@ -11,11 +11,12 @@ from datetime import datetime, timezone, timedelta
 import stripe
 import logging
 from sqlalchemy import select
-from app.customers.model import Customer
-from app.auth.model import User
-from app.line_items.model import LineItem
-from app.webhooks.model import WebhookEndpoint, WebhookDelivery
-from app.core import stripe_client
+
+# Email integration
+from app.core.email import send_invoice_email
+from app.core.pdf import generate_invoice_pdf
+from app.customers import repository as customer_repository
+from app.tenant_settings import repository as tenant_settings_repository
 
 
 
@@ -66,6 +67,21 @@ def run_billing_cycle():
 
                 # Payment success handling (sucess)
                 new_invoice.status = InvoiceStatus.PAID
+
+
+
+                # Generate PDF bytes -> fetch customer by id, tenants_settings by customer_id, use new_invoice instead of invoice
+
+                try:
+                    customer = customer_repository.get_customer_by_id(db,new_invoice.customer_id)
+                    tenant_settings = tenant_settings_repository.get_by_customer_id(db, new_invoice.customer_id)
+                    pdf_bytes = generate_invoice_pdf(new_invoice, customer, tenant_settings)
+
+                    send_invoice_email(customer, new_invoice, pdf_bytes)
+
+                except Exception as e:
+                    logger.error(f'Email failed for invoice {new_invoice.id}: {e}')
+
 
 
                 # Record payment date
