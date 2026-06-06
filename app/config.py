@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     resend_api_key: str
 
     # Test Database
-    test_database_name: str
+    #test_database_name: str test  config does not belong in  production settings
 
     # Auth
     secret_key: str
