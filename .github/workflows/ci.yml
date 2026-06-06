@@ -6,11 +6,26 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+          DATABASE_HOSTNAME: ${{ secrets.DATABASE_HOSTNAME }}
+          DATABASE_PORT: ${{ secrets.DATABASE_PORT }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ALGORITHM: ${{ secrets.ALGORITHM }}
+          ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
     steps:
       - name: Checkout code
@@ -27,4 +42,6 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/
-            
+
+      
+              
