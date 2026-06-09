@@ -1,6 +1,6 @@
 # defines HTTP endpoints and delegates to the service layer
 
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, HTTPException  # C4: added HTTPException for endpoint lookup guard
 from app.webhooks.schemas import WebhookEndpointCreate, WebhookEndpointResponse, WebhookEndpointUpdate, WebhookDeliverRequest, WebhookEndpointCreateResponse
 from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
@@ -57,6 +57,12 @@ def deactivate_webhook_endpoint(endpoint_id : int, db : Session = Depends(get_db
 @router.post('/{endpoint_id}/deliver', status_code= 200)
 #@limiter.limit("5/minute")
 def deliver_webhook_endpoint(endpoint_id : int, deliver_request : WebhookDeliverRequest, db : Session = Depends(get_db), current_user = Depends(get_current_user)):
-    return service.deliver_webhook(db, current_user.id, deliver_request.event_type , deliver_request.payload)
+    # C4: look up the endpoint first to get its customer_id instead of blindly using current_user.id
+    endpoint = service.get_webhook_endpoint_by_id(db, endpoint_id, current_user.id)
+    if endpoint is None:
+        # C4: guard — return 404 if endpoint not found for this user
+        raise HTTPException(status_code=404, detail="Webhook endpoint not found")
+    # C4: use endpoint.customer_id so the delivery targets the right customer's endpoints
+    return service.deliver_webhook(db, endpoint.customer_id, deliver_request.event_type , deliver_request.payload)
 
 

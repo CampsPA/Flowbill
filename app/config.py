@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     app_env : str = "development"
 
 
-    model_config = SettingsConfigDict(env_file = ".env")
+    # extra="ignore" lets .env contain test-only keys (e.g. test_database_name) without crashing
+    model_config = SettingsConfigDict(env_file = ".env", extra="ignore")
 
 settings = Settings()
 

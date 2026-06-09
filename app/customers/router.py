@@ -51,3 +51,14 @@ def update_customer(customer_id : int, customer_update : CustomerUpdate, db:Sess
 def deactivate_customer(customer_id : int,  db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.deactivate_customer(db, customer_id)
 
+
+# Customers hard delete: permanently delete a customer and cancel all their active subscriptions
+# Using a sub-path /hard so it doesn't collide with the PATCH /{customer_id} route
+@router.delete('/{customer_id}/hard', status_code=200)
+#@limiter.limit("5/minute")
+def hard_delete_customer(customer_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    # Customers hard delete: delegate to service which cancels subs then removes the row
+    service.hard_delete_customer(db, customer_id)
+    # Customers hard delete: return a simple confirmation message (no response_model since row is gone)
+    return {"message": f"Customer {customer_id} permanently deleted."}
+

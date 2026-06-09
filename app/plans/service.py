@@ -6,6 +6,11 @@ from sqlalchemy.orm import Session
 import logging
 # Custom exceptions
 from app.core.exceptions import DuplicateRecord, ResourceNotFound
+# Plans DELETE: import subscriptions model to check for active subscribers
+from sqlalchemy import select
+from app.subscriptions.model import Subscription
+from app.core.enums import SubscriptionStatus
+from fastapi import HTTPException  # Plans DELETE: needed to return 400 if active subs exist
 
 
 logger = logging.getLogger("app.plans.service")
@@ -53,4 +58,19 @@ def deactivate_plan(db: Session, plan_id : int):
 
     if plan is None:
         raise ResourceNotFound("Plan", plan_id)
+
+    # Plans DELETE: block deactivation if any active subscribers exist on this plan
+    active_sub_count = db.execute(
+        select(Subscription).where(
+            Subscription.plan_id == plan_id,           # only for this plan
+            Subscription.status == SubscriptionStatus.ACTIVE  # only active ones
+        )
+    ).scalars().all()
+    if active_sub_count:
+        # Plans DELETE: return 400 rather than silently deactivating with live subscribers
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot deactivate plan: {len(active_sub_count)} active subscription(s) still reference this plan."
+        )
+
     return repository.deactivate_plan(db, plan_id)

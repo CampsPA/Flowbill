@@ -26,13 +26,21 @@ def create_invoice(invoice_data: InvoiceCreate, db:Session = Depends(get_db), cu
     return service.create_invoice(db, invoice_data)
 
 
+# I3: moved /subscription/{subscription_id} ABOVE /{invoice_id} so FastAPI does not
+# greedily match the literal segment "subscription" as an invoice_id integer.
+# Get invoices by subscription_id, response model as a list
+@router.get('/subscription/{subscription_id}', response_model=list[InvoiceResponse])
+#@limiter.limit("5/minute")
+def get_invoice_by_subscription(subscription_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
+    return service.get_invoices_by_subscription(db, subscription_id)
+
+
 # PDF endpoint step #14 PDF document
 @router.get('/{invoice_id}/pdf')
 #@limiter.limit("5/minute")
 def pdf_creation(invoice_id: int , customer_id: int , db: Session = Depends(get_db),current_user = Depends(get_current_user)):
     pdf_bytes = service.get_invoice_pdf(db, invoice_id, customer_id)
     return Response(content=pdf_bytes, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename=invoice_{invoice_id}.pdf'})
-
 
 
 # Get invoice by id
@@ -47,13 +55,6 @@ def get_invoice_by_id(invoice_id : int, db:Session = Depends(get_db), current_us
 #@limiter.limit("5/minute")
 def get_all_invoices(customer_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_all_invoices(db, customer_id)
-
-
-# Get invoices by subscription_id, , response model as a list
-@router.get('/subscription/{subscription_id}', response_model=list[InvoiceResponse])
-#@limiter.limit("5/minute")
-def get_invoice_by_subscription(subscription_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
-    return service.get_invoices_by_subscription(db, subscription_id)
 
 
 # Update invoice (invoice_id)

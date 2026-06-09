@@ -62,7 +62,11 @@ def update_subscription(db : Session, subscription_id : int, subscription_update
     #  Apply changes
     for key, value in subscription_update.items():
         setattr(subscription, key, value)
-    
+
+    # I10: when status is being set to 'paused', stamp paused_at server-side
+    # so the client never needs to send this timestamp in the request body
+    if subscription_update.get('status') == SubscriptionStatus.PAUSED:
+        subscription.paused_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(subscription)

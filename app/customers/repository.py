@@ -79,10 +79,29 @@ def deactivate_customer(db: Session, customer_id : int):
     if not customer:
         logger.info("Customer not found")
         return None
-    
+
     # Deactivate customer - set is_active to false
     customer.is_active = False
 
     db.commit()
     db.refresh(customer)
     return customer
+
+
+# Customers hard delete: permanently remove the customer row from the database
+# Called only after the service layer has already cancelled all active subscriptions
+def hard_delete_customer(db: Session, customer_id: int):
+    # Customers hard delete: fetch the record we're about to remove
+    customer = db.execute(select(Customer).where(Customer.id == customer_id)).scalar_one_or_none()
+
+    if not customer:
+        # Customers hard delete: nothing to delete — log and return None
+        logger.info(f"hard_delete_customer: no customer found with id {customer_id}")
+        return None
+
+    # Customers hard delete: permanently delete the row
+    db.delete(customer)
+    db.commit()
+    logger.info(f"Customer with id {customer_id} permanently deleted.")
+    # Customers hard delete: return None because the row no longer exists
+    return None

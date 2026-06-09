@@ -1,0 +1,159 @@
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+// I2: added Package icon for line items section
+import { ArrowLeft, Download, CreditCard, Package } from 'lucide-react'
+import api from '../api/client'
+import Card from '../components/ui/Card'
+import Button from '../components/ui/Button'
+import Badge from '../components/ui/Badge'
+import { Table, Thead, Th, Tbody, Tr, Td } from '../components/ui/Table'
+
+function fmt(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+function cents(v) {
+  if (v == null) return '—'
+  return '$' + (v / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })
+}
+
+export default function InvoiceDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [invoice, setInvoice] = useState(null)
+  const [payments, setPayments] = useState([])
+  const [lineItems, setLineItems] = useState([])  // I2: state for line items
+  const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      api.get(`/invoices/${id}`),
+      api.get(`/payments/invoice/${id}`).catch(() => ({ data: [] })),
+      // I2: fetch line items for this invoice; gracefully fall back to empty array
+      api.get(`/line-items/invoice/${id}`).catch(() => ({ data: [] })),
+    ]).then(([inv, pay, items]) => {
+      setInvoice(inv.data); setPayments(pay.data)
+      setLineItems(items.data)  // I2: store fetched line items
+    }).catch(() => navigate('/app/invoices'))
+    .finally(() => setLoading(false))
+  }, [id])
+
+  async function handleDownload() {
+    if (!invoice) return
+    setDownloading(true)
+    try {
+      const res = await api.get(`/invoices/${id}/pdf?customer_id=${invoice.customer_id}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const a = document.createElement('a'); a.href = url; a.download = `invoice_${id}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      // C5: surface PDF download errors to the user instead of swallowing them silently
+      alert(err.response?.data?.detail ?? 'Failed to download PDF. Please try again.')
+    } finally { setDownloading(false) }
+  }
+
+  if (loading) return <div className="p-8 text-slate-400 text-sm">Loading…</div>
+  if (!invoice) return null
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate('/app/invoices')} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-[#e3e8ef]">
+          <ArrowLeft size={16} />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold text-slate-900">Invoice #{invoice.id}</h1>
+          <p className="text-sm text-slate-400">Customer #{invoice.customer_id} · Subscription #{invoice.subscription_id}</p>
+        </div>
+        <Button onClick={handleDownload} loading={downloading} variant="secondary">
+          <Download size={14} /> Download PDF
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          ['Amount Due', <span className="text-xl font-bold text-slate-800">{cents(invoice.amount_cents)}</span>],
+          ['Status', <Badge status={invoice.status} />],
+          ['Due Date', <span className="text-sm text-slate-600">{fmt(invoice.due_date)}</span>],
+          ['Paid At', <span className="text-sm text-slate-600">{fmt(invoice.paid_at)}</span>],
+        ].map(([label, val]) => (
+          <Card key={label} className="p-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{label}</p>
+            {val}
+          </Card>
+        ))}
+      </div>
+
+      {/* I2: line items card — shows the description/quantity/price breakdown for the invoice */}
+      <Card>
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e3e8ef]">
+          <Package size={14} className="text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-700">Line Items</h2>
+        </div>
+        {lineItems.length === 0 ? (
+          // I2: empty state when no line items exist for this invoice
+          <div className="px-5 py-5 text-sm text-slate-400">No line items recorded.</div>
+        ) : (
+          <Table>
+            <Thead>
+              <Tr header>
+                {/* I2: columns match the LineItem schema fields */}
+                <Th width="50%">Description</Th>
+                <Th width="15%">Qty</Th>
+                <Th width="20%">Amount</Th>
+                <Th width="15%">Total</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {lineItems.map(item => (
+                // I2: render each line item row; fields from LineItemResponse schema
+                <Tr key={item.id}>
+                  <Td>{item.description}</Td>
+                  <Td mono muted>{item.quantity}</Td>
+                  {/* I2: amount_cents is the per-unit price from LineItemResponse */}
+                  <Td><span style={{ fontWeight: '600', color: '#0f172a' }}>{cents(item.amount_cents)}</span></Td>
+                  {/* I2: total = unit price × quantity, computed client-side */}
+                  <Td><span style={{ fontWeight: '600', color: '#0f172a' }}>{cents(item.amount_cents * item.quantity)}</span></Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        )}
+      </Card>
+
+      <Card>
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-[#e3e8ef]">
+          <CreditCard size={14} className="text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-700">Payment Attempts</h2>
+        </div>
+        {payments.length === 0 ? (
+          <div className="px-5 py-5 text-sm text-slate-400">No payment attempts recorded.</div>
+        ) : (
+          <Table>
+            <Thead>
+              <Tr header>
+                <Th width="7%">ID</Th>
+                <Th width="20%">Attempted At</Th>
+                <Th width="13%">Status</Th>
+                <Th width="35%">Failure Reason</Th>
+                <Th width="25%">Stripe Intent</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {payments.map(p => (
+                <Tr key={p.id}>
+                  <Td mono muted>#{p.id}</Td>
+                  <Td muted>{fmt(p.attempted_at)}</Td>
+                  <Td><Badge status={p.status} /></Td>
+                  <Td muted>{p.failure_reason ?? null}</Td>
+                  <Td mono muted truncate>{p.stripe_payment_intent_id ?? null}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  )
+}
