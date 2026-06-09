@@ -105,6 +105,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",   # original dev port
         "http://localhost:3001",   # C2: added Vite dev server port
+        "http://52.3.232.204:3000" # Frontend
     ],
     allow_credentials=True,
     allow_methods=["*"],

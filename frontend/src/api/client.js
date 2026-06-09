@@ -1,7 +1,8 @@
 import axios from 'axios'
 
+// Use VITE_API_URL directly so production builds hit the backend without a proxy
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL,
 })
 
 api.interceptors.request.use((config) => {
