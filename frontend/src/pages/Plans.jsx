@@ -113,6 +113,9 @@ export default function Plans() {
     if (!confirm('Are you sure you want to delete this plan? This cannot be undone.')) return
     try {
       await api.delete(`/plans/${plan.id}`)
+      // Immediately remove the plan from local state so the row disappears at once,
+      // then re-fetch in the background to stay in sync with the server.
+      setPlans(prev => prev.filter(p => p.id !== plan.id))
       load()
     } catch (err) {
       // Backend returns "Cannot delete a plan with active subscribers. Deactivate it instead."

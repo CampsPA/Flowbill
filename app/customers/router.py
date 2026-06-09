@@ -45,15 +45,8 @@ def update_customer(customer_id : int, customer_update : CustomerUpdate, db:Sess
     return service.update_customer(db, customer_id, customer_update)
 
 
-# Deactivate (delete) customers
-@router.delete('/{customer_id}', response_model=CustomerResponse)
-#@limiter.limit("5/minute")
-def deactivate_customer(customer_id : int,  db:Session = Depends(get_db), current_user= Depends(get_current_user)):
-    return service.deactivate_customer(db, customer_id)
-
-
-# Customers hard delete: permanently delete a customer and cancel all their active subscriptions
-# Using a sub-path /hard so it doesn't collide with the PATCH /{customer_id} route
+# Customers hard delete: registered BEFORE /{customer_id} so FastAPI matches the more
+# specific /hard path first and never confuses it with the generic delete route below.
 @router.delete('/{customer_id}/hard', status_code=200)
 #@limiter.limit("5/minute")
 def hard_delete_customer(customer_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
@@ -61,4 +54,11 @@ def hard_delete_customer(customer_id: int, db: Session = Depends(get_db), curren
     service.hard_delete_customer(db, customer_id)
     # Customers hard delete: return a simple confirmation message (no response_model since row is gone)
     return {"message": f"Customer {customer_id} permanently deleted."}
+
+
+# Deactivate (soft-delete) customer — registered AFTER /hard so the specific route wins
+@router.delete('/{customer_id}', response_model=CustomerResponse)
+#@limiter.limit("5/minute")
+def deactivate_customer(customer_id : int,  db:Session = Depends(get_db), current_user= Depends(get_current_user)):
+    return service.deactivate_customer(db, customer_id)
 
