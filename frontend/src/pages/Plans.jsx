@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-// Plans Delete: added Trash2 icon for delete button
-import { Plus, Package, Trash2 } from 'lucide-react'
+import { Plus, Package, Trash2, Edit2, Check } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -21,53 +20,102 @@ function fmt(dt) {
 export default function Plans() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({ name: '', price_dollars: '', interval: 'monthly', trial_days: '' })
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+
+  // ── Create modal state ────────────────────────────────────────────────────
+  const [createModal, setCreateModal] = useState(false)
+  const [createForm, setCreateForm] = useState({ name: '', price_dollars: '', interval: 'monthly', trial_days: '' })
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
+
+  // ── Edit modal state ──────────────────────────────────────────────────────
+  // editPlan holds the full plan object being edited; null when modal is closed
+  const [editPlan, setEditPlan] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', price_dollars: '', interval: 'monthly', trial_days: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editSuccess, setEditSuccess] = useState(false)
 
   function load() {
     api.get('/plans/').then(r => setPlans(r.data)).catch(() => {}).finally(() => setLoading(false))
   }
   useEffect(load, [])
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+  // ── Create handlers ───────────────────────────────────────────────────────
+  function setCreate(k, v) { setCreateForm(f => ({ ...f, [k]: v })) }
 
   async function handleCreate(e) {
-    e.preventDefault(); setSaving(true); setError('')
+    e.preventDefault(); setCreating(true); setCreateError('')
     try {
       await api.post('/plans/', {
-        name: form.name,
-        price_cents: Math.round(parseFloat(form.price_dollars) * 100),
-        interval: form.interval,
-        trial_days: form.trial_days ? parseInt(form.trial_days) : null,
+        name: createForm.name,
+        price_cents: Math.round(parseFloat(createForm.price_dollars) * 100),
+        interval: createForm.interval,
+        trial_days: createForm.trial_days ? parseInt(createForm.trial_days) : null,
       })
-      setModal(false); setForm({ name: '', price_dollars: '', interval: 'monthly', trial_days: '' }); load()
+      setCreateModal(false)
+      setCreateForm({ name: '', price_dollars: '', interval: 'monthly', trial_days: '' })
+      load()
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Error creating plan')
-    } finally { setSaving(false) }
+      setCreateError(err.response?.data?.detail ?? 'Error creating plan')
+    } finally { setCreating(false) }
   }
 
+  // ── Edit handlers ─────────────────────────────────────────────────────────
+  // Opens the edit modal pre-populated with the selected plan's current values
+  function openEdit(plan) {
+    setEditPlan(plan)
+    setEditForm({
+      name: plan.name,
+      price_dollars: (plan.price_cents / 100).toFixed(2),
+      interval: plan.interval,
+      trial_days: plan.trial_days != null ? String(plan.trial_days) : '',
+    })
+    setEditError('')
+    setEditSuccess(false)
+  }
+
+  function setEdit(k, v) { setEditForm(f => ({ ...f, [k]: v })) }
+
+  async function handleEdit(e) {
+    e.preventDefault(); setEditSaving(true); setEditError(''); setEditSuccess(false)
+    try {
+      await api.patch(`/plans/${editPlan.id}`, {
+        name: editForm.name,
+        price_cents: Math.round(parseFloat(editForm.price_dollars) * 100),
+        interval: editForm.interval,
+        trial_days: editForm.trial_days ? parseInt(editForm.trial_days) : null,
+      })
+      setEditSuccess(true)
+      load() // refresh the table so the new values appear immediately
+      setTimeout(() => {
+        // Auto-close after a brief success flash so the user sees it
+        setEditPlan(null)
+        setEditSuccess(false)
+      }, 1200)
+    } catch (err) {
+      setEditError(err.response?.data?.detail ?? 'Error updating plan')
+    } finally { setEditSaving(false) }
+  }
+
+  // ── Activate / Deactivate toggle ──────────────────────────────────────────
   async function handleToggle(plan) {
-    // N10: ask for confirmation before deactivating an active plan (no confirmation needed to re-activate)
     if (plan.is_active && !confirm(`Deactivate "${plan.name}"? Customers on this plan will keep their subscriptions but no new subscriptions can be created.`)) return
     try {
       await api.patch(`/plans/${plan.id}`, { is_active: !plan.is_active })
       load()
     } catch (err) {
-      // N10: surface server errors (e.g. active subscriber check from backend)
       alert(err.response?.data?.detail ?? 'Failed to update plan status.')
     }
   }
 
-  // Plans Delete: handler that confirms then calls DELETE /plans/{id}
+  // ── Delete handler ────────────────────────────────────────────────────────
   async function handleDelete(plan) {
-    if (!confirm(`Permanently delete "${plan.name}"? This cannot be undone.`)) return
+    if (!confirm('Are you sure you want to delete this plan? This cannot be undone.')) return
     try {
-      await api.delete(`/plans/${plan.id}`)  // Plans Delete: calls the deactivate_plan endpoint (sets is_active=false)
+      await api.delete(`/plans/${plan.id}`)
       load()
     } catch (err) {
-      // Plans Delete: show backend error (e.g. active subscriber check blocks the delete)
+      // Backend returns "Cannot delete a plan with active subscribers. Deactivate it instead."
       alert(err.response?.data?.detail ?? 'Failed to delete plan.')
     }
   }
@@ -82,7 +130,9 @@ export default function Plans() {
           <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', letterSpacing: '-0.5px', marginBottom: '6px' }}>Plans</h1>
           <p style={{ fontSize: '14px', color: '#94a3b8' }}>{activePlans} active plan{activePlans !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={() => setModal(true)}><Plus size={15} /> New Plan</Button>
+        <Button onClick={() => { setCreateModal(true); setCreateError('') }}>
+          <Plus size={15} /> New Plan
+        </Button>
       </div>
 
       {/* Table */}
@@ -95,14 +145,14 @@ export default function Plans() {
           <Table>
             <Thead>
               <Tr header>
-                {/* Plans Delete: reduced Plan/Price/Created widths slightly to make room for 2 buttons */}
-                <Th width="22%">Plan</Th>
-                <Th width="12%">Price</Th>
-                <Th width="12%">Interval</Th>
-                <Th width="10%">Trial</Th>
-                <Th width="11%">Status</Th>
+                <Th width="20%">Plan</Th>
+                <Th width="11%">Price</Th>
+                <Th width="11%">Interval</Th>
+                <Th width="9%">Trial</Th>
+                <Th width="10%">Status</Th>
                 <Th width="13%">Created</Th>
-                <Th width="20%"></Th>
+                {/* Actions column — wide enough for Edit + Deactivate + Delete */}
+                <Th width="26%"></Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -116,10 +166,14 @@ export default function Plans() {
                   <Td muted>{fmt(p.created_at)}</Td>
                   <Td>
                     <div style={{ display: 'flex', gap: '6px' }}>
+                      {/* Edit button — opens the edit modal for this plan */}
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                        <Edit2 size={12} /> Edit
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleToggle(p)}>
                         {p.is_active ? 'Deactivate' : 'Activate'}
                       </Button>
-                      {/* Plans Delete: delete button — backend blocks if active subscribers exist */}
+                      {/* Delete button — backend blocks this if active subscribers exist */}
                       <Button variant="danger" size="sm" onClick={() => handleDelete(p)}>
                         <Trash2 size={12} />
                       </Button>
@@ -132,20 +186,53 @@ export default function Plans() {
         )}
       </Card>
 
-      {/* Create modal */}
-      <Modal open={modal} onClose={() => { setModal(false); setError('') }} title="New Plan">
+      {/* ── Create modal ─────────────────────────────────────────────────── */}
+      <Modal open={createModal} onClose={() => { setCreateModal(false); setCreateError('') }} title="New Plan">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>{error}</div>}
-          <Input label="Plan Name" placeholder="Pro Monthly" value={form.name} onChange={e => set('name', e.target.value)} required />
-          <Input label="Price (USD)" type="number" step="0.01" min="0" placeholder="49.00" value={form.price_dollars} onChange={e => set('price_dollars', e.target.value)} required />
-          <Select label="Billing Interval" value={form.interval} onChange={e => set('interval', e.target.value)}>
+          {createError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+              {createError}
+            </div>
+          )}
+          <Input label="Plan Name" placeholder="Pro Monthly" value={createForm.name} onChange={e => setCreate('name', e.target.value)} required />
+          <Input label="Price (USD)" type="number" step="0.01" min="0" placeholder="49.00" value={createForm.price_dollars} onChange={e => setCreate('price_dollars', e.target.value)} required />
+          <Select label="Billing Interval" value={createForm.interval} onChange={e => setCreate('interval', e.target.value)}>
             <option value="monthly">Monthly</option>
             <option value="annual">Annual</option>
           </Select>
-          <Input label="Trial Days (optional)" type="number" placeholder="14" value={form.trial_days} onChange={e => set('trial_days', e.target.value)} />
+          <Input label="Trial Days (optional)" type="number" placeholder="14" value={createForm.trial_days} onChange={e => setCreate('trial_days', e.target.value)} />
           <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
-            <Button type="button" variant="secondary" onClick={() => setModal(false)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
-            <Button type="submit" loading={saving} style={{ flex: 1, justifyContent: 'center' }}>Create Plan</Button>
+            <Button type="button" variant="secondary" onClick={() => setCreateModal(false)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
+            <Button type="submit" loading={creating} style={{ flex: 1, justifyContent: 'center' }}>Create Plan</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Edit modal ───────────────────────────────────────────────────── */}
+      <Modal open={!!editPlan} onClose={() => { setEditPlan(null); setEditError(''); setEditSuccess(false) }} title={`Edit Plan — ${editPlan?.name ?? ''}`}>
+        <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Success banner */}
+          {editSuccess && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Check size={14} /> Plan updated successfully.
+            </div>
+          )}
+          {/* Error banner */}
+          {editError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+              {editError}
+            </div>
+          )}
+          <Input label="Plan Name" placeholder="Pro Monthly" value={editForm.name} onChange={e => setEdit('name', e.target.value)} required />
+          <Input label="Price (USD)" type="number" step="0.01" min="0" placeholder="49.00" value={editForm.price_dollars} onChange={e => setEdit('price_dollars', e.target.value)} required />
+          <Select label="Billing Interval" value={editForm.interval} onChange={e => setEdit('interval', e.target.value)}>
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </Select>
+          <Input label="Trial Days (optional)" type="number" placeholder="14" value={editForm.trial_days} onChange={e => setEdit('trial_days', e.target.value)} />
+          <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
+            <Button type="button" variant="secondary" onClick={() => setEditPlan(null)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
+            <Button type="submit" loading={editSaving} style={{ flex: 1, justifyContent: 'center' }}>Save Changes</Button>
           </div>
         </form>
       </Modal>

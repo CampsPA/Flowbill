@@ -70,7 +70,7 @@ def deactivate_plan(db: Session, plan_id : int):
         # Plans DELETE: return 400 rather than silently deactivating with live subscribers
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot deactivate plan: {len(active_sub_count)} active subscription(s) still reference this plan."
+            detail="Cannot delete a plan with active subscribers. Deactivate it instead."
         )
 
     return repository.deactivate_plan(db, plan_id)

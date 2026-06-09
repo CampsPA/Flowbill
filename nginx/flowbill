@@ -1,0 +1,19 @@
+server {
+    listen 3000;
+    root /var/www/flowbill/dist;
+    index index.html;
+
+    # Forward /api/* to the FastAPI backend on port 8001
+    # The trailing slash on proxy_pass strips the /api prefix before forwarding
+    location /api/ {
+        proxy_pass http://localhost:8001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Serve the React SPA — fall back to index.html for client-side routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

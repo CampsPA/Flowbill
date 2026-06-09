@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, RefreshCw, PauseCircle, XCircle, ArrowUpCircle, PlayCircle } from 'lucide-react'
+import { Plus, RefreshCw, PauseCircle, XCircle, ArrowUpCircle, PlayCircle, Edit2, Trash2, Check } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
-import { Select } from '../components/ui/Input'
+import Input, { Select } from '../components/ui/Input'
 import EmptyState from '../components/ui/EmptyState'
 import { Table, Thead, Th, Tbody, Tr, Td } from '../components/ui/Table'
 
 function fmt(dt) {
   if (!dt) return null
   return new Date(dt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+// Convert a UTC ISO string to a YYYY-MM-DD string suitable for <input type="date">
+function toDateInput(dt) {
+  if (!dt) return ''
+  return new Date(dt).toISOString().split('T')[0]
 }
 function cents(v) {
   if (v == null) return ''
@@ -29,17 +34,29 @@ export default function Subscriptions() {
   const [subs, setSubs] = useState([])
   const [loading, setLoading] = useState(false)
 
+  // ── Create modal ────────────────────────────────────────────────────────────
   const [createModal, setCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState({ customer_id: defaultCustomerId, plan_id: '' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
+  // ── Change-plan (upgrade) modal ─────────────────────────────────────────────
   const [upgradeModal, setUpgradeModal] = useState(null)
   const [upgradePlanId, setUpgradePlanId] = useState('')
   const [upgrading, setUpgrading] = useState(false)
   const [upgradeError, setUpgradeError] = useState('')
-  // I4: track which subscription id is currently being acted on so action buttons show a spinner
-  const [actionLoading, setActionLoading] = useState(null)  // stores sub.id while any action is in-flight
+
+  // ── Edit modal state ────────────────────────────────────────────────────────
+  // editSub holds the full sub object; null means modal is closed
+  const [editSub, setEditSub] = useState(null)
+  const [editForm, setEditForm] = useState({ status: 'active', current_period_start: '', current_period_end: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [editSuccess, setEditSuccess] = useState(false)
+
+  // ── I4: per-row action loading ──────────────────────────────────────────────
+  // stores sub.id while any action (pause/resume/cancel/delete) is in-flight
+  const [actionLoading, setActionLoading] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -61,6 +78,7 @@ export default function Subscriptions() {
   }
   useEffect(() => { if (customerId) loadSubs(customerId) }, [customerId])
 
+  // ── Create handler ──────────────────────────────────────────────────────────
   async function handleCreate(e) {
     e.preventDefault(); setCreating(true); setCreateError('')
     try {
@@ -74,25 +92,27 @@ export default function Subscriptions() {
     } finally { setCreating(false) }
   }
 
+  // ── Pause / Resume / Cancel handlers ────────────────────────────────────────
   async function handlePause(sub) {
-    // I4: set loading on this specific sub so the Pause button shows a spinner
     setActionLoading(sub.id)
-    // I10: removed paused_at from the request body — server now sets it automatically
+    // I10: paused_at is set server-side; do not include it in the request body
     await api.patch(`/subscriptions/${sub.id}`, { status: 'paused' })
     loadSubs(customerId)
-    setActionLoading(null)  // I4: clear loading state when done
+    setActionLoading(null)
   }
   async function handleResume(sub) {
-    setActionLoading(sub.id)  // I4: spinner on Resume button
+    setActionLoading(sub.id)
     await api.patch(`/subscriptions/${sub.id}`, { status: 'active' }); loadSubs(customerId)
-    setActionLoading(null)  // I4: clear after resuming
+    setActionLoading(null)
   }
   async function handleCancel(sub) {
     if (!confirm('Cancel this subscription? This cannot be undone.')) return
-    setActionLoading(sub.id)  // I4: spinner on Cancel button
+    setActionLoading(sub.id)
     await api.delete(`/subscriptions/${sub.id}`); loadSubs(customerId)
-    setActionLoading(null)  // I4: clear after cancellation
+    setActionLoading(null)
   }
+
+  // ── Upgrade (change plan) handler ────────────────────────────────────────────
   async function handleUpgrade(e) {
     e.preventDefault(); setUpgrading(true); setUpgradeError('')
     try {
@@ -101,6 +121,55 @@ export default function Subscriptions() {
     } catch (err) {
       setUpgradeError(err.response?.data?.detail ?? 'Error changing plan')
     } finally { setUpgrading(false) }
+  }
+
+  // ── Edit modal handlers ──────────────────────────────────────────────────────
+  // Opens the edit modal pre-populated with the subscription's current values
+  function openEdit(sub) {
+    setEditSub(sub)
+    setEditForm({
+      status: sub.status,
+      current_period_start: toDateInput(sub.current_period_start),
+      current_period_end: toDateInput(sub.current_period_end),
+    })
+    setEditError('')
+    setEditSuccess(false)
+  }
+
+  function setEdit(k, v) { setEditForm(f => ({ ...f, [k]: v })) }
+
+  async function handleEdit(e) {
+    e.preventDefault(); setEditSaving(true); setEditError(''); setEditSuccess(false)
+    try {
+      await api.patch(`/subscriptions/${editSub.id}`, {
+        status: editForm.status,
+        // Convert YYYY-MM-DD back to ISO 8601 for the backend
+        current_period_start: editForm.current_period_start ? new Date(editForm.current_period_start).toISOString() : null,
+        current_period_end: editForm.current_period_end ? new Date(editForm.current_period_end).toISOString() : null,
+      })
+      setEditSuccess(true)
+      loadSubs(customerId) // refresh the table immediately
+      setTimeout(() => {
+        // Auto-close after success flash
+        setEditSub(null)
+        setEditSuccess(false)
+      }, 1200)
+    } catch (err) {
+      setEditError(err.response?.data?.detail ?? 'Error updating subscription')
+    } finally { setEditSaving(false) }
+  }
+
+  // ── Delete (hard-delete) handler ─────────────────────────────────────────────
+  async function handleDelete(sub) {
+    if (!confirm('Are you sure you want to delete this subscription? This cannot be undone.')) return
+    setActionLoading(sub.id)
+    try {
+      // DELETE /subscriptions/{id} cancels and removes the subscription
+      await api.delete(`/subscriptions/${sub.id}`)
+      loadSubs(customerId)
+    } catch (err) {
+      alert(err.response?.data?.detail ?? 'Failed to delete subscription.')
+    } finally { setActionLoading(null) }
   }
 
   return (
@@ -116,7 +185,7 @@ export default function Subscriptions() {
         </Button>
       </div>
 
-      {/* Filter */}
+      {/* Customer filter */}
       <Card style={{ padding: '20px 24px' }}>
         <Select label="Filter by Customer" value={customerId} onChange={e => setCustomerId(e.target.value)}>
           <option value="">— Select a customer —</option>
@@ -124,7 +193,7 @@ export default function Subscriptions() {
         </Select>
       </Card>
 
-      {/* Table */}
+      {/* Subscriptions table */}
       <Card>
         {!customerId ? (
           <EmptyState icon={RefreshCw} title="Select a customer" description="Choose a customer above to view their subscriptions." />
@@ -136,17 +205,20 @@ export default function Subscriptions() {
           <Table>
             <Thead>
               <Tr header>
-                <Th width="7%">ID</Th>
-                <Th width="28%">Plan</Th>
-                <Th width="12%">Status</Th>
-                <Th width="16%">Period Start</Th>
-                <Th width="16%">Period End</Th>
-                <Th width="21%">Actions</Th>
+                <Th width="6%">ID</Th>
+                <Th width="22%">Plan</Th>
+                <Th width="11%">Status</Th>
+                <Th width="13%">Period Start</Th>
+                <Th width="13%">Period End</Th>
+                {/* Actions column wide enough for Edit + Pause/Resume + Change + Cancel + Delete */}
+                <Th width="35%">Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
               {subs.map(s => {
                 const plan = plans.find(p => p.id === s.plan_id)
+                // isActing disables all buttons for this row while any action is in-flight
+                const isActing = actionLoading === s.id
                 return (
                   <Tr key={s.id}>
                     <Td mono muted>#{s.id}</Td>
@@ -160,31 +232,35 @@ export default function Subscriptions() {
                     <Td muted>{fmt(s.current_period_start)}</Td>
                     <Td muted>{fmt(s.current_period_end)}</Td>
                     <Td>
-                      {/* I4: isActing disables all buttons for this row while any action is in-flight */}
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                        {/* Edit button — opens the edit modal for this subscription */}
+                        <Button variant="ghost" size="sm" disabled={isActing} onClick={() => openEdit(s)}>
+                          <Edit2 size={12} /> Edit
+                        </Button>
                         {s.status === 'active' && (
-                          // I4: loading prop shows spinner; disabled prevents double-clicks
-                          <Button variant="ghost" size="sm" loading={actionLoading === s.id} disabled={actionLoading === s.id} onClick={() => handlePause(s)}>
+                          <Button variant="ghost" size="sm" loading={isActing} disabled={isActing} onClick={() => handlePause(s)}>
                             <PauseCircle size={12} /> Pause
                           </Button>
                         )}
                         {s.status === 'paused' && (
-                          // I4: same loading pattern for Resume
-                          <Button variant="ghost" size="sm" loading={actionLoading === s.id} disabled={actionLoading === s.id} onClick={() => handleResume(s)}>
+                          <Button variant="ghost" size="sm" loading={isActing} disabled={isActing} onClick={() => handleResume(s)}>
                             <PlayCircle size={12} /> Resume
                           </Button>
                         )}
                         {s.status !== 'cancelled' && (
-                          <Button variant="ghost" size="sm" disabled={actionLoading === s.id} onClick={() => { setUpgradePlanId(''); setUpgradeError(''); setUpgradeModal(s) }}>
+                          <Button variant="ghost" size="sm" disabled={isActing} onClick={() => { setUpgradePlanId(''); setUpgradeError(''); setUpgradeModal(s) }}>
                             <ArrowUpCircle size={12} /> Change
                           </Button>
                         )}
                         {s.status !== 'cancelled' && (
-                          // I4: Cancel button also shows loading/disabled state
-                          <Button variant="danger" size="sm" loading={actionLoading === s.id} disabled={actionLoading === s.id} onClick={() => handleCancel(s)}>
+                          <Button variant="danger" size="sm" loading={isActing} disabled={isActing} onClick={() => handleCancel(s)}>
                             <XCircle size={12} /> Cancel
                           </Button>
                         )}
+                        {/* Delete button — hard-deletes the subscription record */}
+                        <Button variant="danger" size="sm" loading={isActing} disabled={isActing} onClick={() => handleDelete(s)}>
+                          <Trash2 size={12} />
+                        </Button>
                       </div>
                     </Td>
                   </Tr>
@@ -195,7 +271,7 @@ export default function Subscriptions() {
         )}
       </Card>
 
-      {/* Create modal */}
+      {/* ── Create modal ─────────────────────────────────────────────────────── */}
       <Modal open={createModal} onClose={() => { setCreateModal(false); setCreateError('') }} title="New Subscription">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {createError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>{createError}</div>}
@@ -214,7 +290,7 @@ export default function Subscriptions() {
         </form>
       </Modal>
 
-      {/* Change plan modal */}
+      {/* ── Change-plan modal ─────────────────────────────────────────────────── */}
       <Modal open={!!upgradeModal} onClose={() => setUpgradeModal(null)} title="Change Plan">
         <form onSubmit={handleUpgrade} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {upgradeError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>{upgradeError}</div>}
@@ -236,6 +312,52 @@ export default function Subscriptions() {
           <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
             <Button type="button" variant="secondary" onClick={() => setUpgradeModal(null)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
             <Button type="submit" loading={upgrading} style={{ flex: 1, justifyContent: 'center' }}>Change Plan</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Edit subscription modal ───────────────────────────────────────────── */}
+      <Modal open={!!editSub} onClose={() => { setEditSub(null); setEditError(''); setEditSuccess(false) }} title={`Edit Subscription #${editSub?.id ?? ''}`}>
+        <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Success banner */}
+          {editSuccess && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Check size={14} /> Subscription updated successfully.
+            </div>
+          )}
+          {/* Error banner */}
+          {editError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+              {editError}
+            </div>
+          )}
+          {/* Status dropdown — all four valid enum values */}
+          <Select label="Status" value={editForm.status} onChange={e => setEdit('status', e.target.value)}>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="past_due">Past Due</option>
+          </Select>
+          {/* Date inputs — pre-filled from the subscription's current period */}
+          <Input
+            label="Current Period Start"
+            type="date"
+            value={editForm.current_period_start}
+            onChange={e => setEdit('current_period_start', e.target.value)}
+          />
+          <Input
+            label="Current Period End"
+            type="date"
+            value={editForm.current_period_end}
+            onChange={e => setEdit('current_period_end', e.target.value)}
+          />
+          {/* Helper note so the user knows how to trigger invoice generation */}
+          <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '-8px', lineHeight: '1.5' }}>
+            Set Current Period End to yesterday to trigger invoice generation on the next billing cycle run.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
+            <Button type="button" variant="secondary" onClick={() => setEditSub(null)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
+            <Button type="submit" loading={editSaving} style={{ flex: 1, justifyContent: 'center' }}>Save Changes</Button>
           </div>
         </form>
       </Modal>

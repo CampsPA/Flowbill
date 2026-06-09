@@ -13,6 +13,7 @@ from app.webhooks.router import router as webhook_router
 from app.webhooks.stripe_receiver import router as stripe_receiver_router
 from app.payments.router import router as payments_router
 from app.tenant_settings.router import router as tenant_settings_router
+from app.billing.router import router as billing_router
 # Import logging
 from app.core.logging import setup_logging 
 # SlowAPI
@@ -171,6 +172,9 @@ logger.info("Payments router successfully registered")
 
 app.include_router(tenant_settings_router, prefix="/tenant-settings")
 logger.info("Tenant settings router successfully registered")
+
+app.include_router(billing_router, prefix="/billing")
+logger.info("Billing router successfully registered")
 
 
 

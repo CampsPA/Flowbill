@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// Use VITE_API_URL directly so production builds hit the backend without a proxy
+// Relative /api prefix — Nginx on the same origin proxies this to port 8001
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: '/api',
 })
 
 api.interceptors.request.use((config) => {

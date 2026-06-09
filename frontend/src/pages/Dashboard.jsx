@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, RefreshCw, FileText, DollarSign, ArrowRight, Zap } from 'lucide-react'
+import { Users, RefreshCw, FileText, DollarSign, ArrowRight, Zap, Play } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
 
 function cents(v) {
   if (v == null) return '—'
@@ -74,6 +75,28 @@ export default function Dashboard() {
     load()
   }, [])
 
+  // ── Billing cycle demo button state ────────────────────────────────────────
+  const [billingRunning, setBillingRunning] = useState(false)
+  // null = idle; 'success' | 'error' = result message state
+  const [billingResult, setBillingResult] = useState(null)
+  const [billingError, setBillingError] = useState('')
+
+  // Calls POST /billing/run to manually trigger one billing cycle iteration
+  async function handleRunBillingCycle() {
+    setBillingRunning(true)
+    setBillingResult(null)
+    setBillingError('')
+    try {
+      await api.post('/billing/run')
+      setBillingResult('success')
+    } catch (err) {
+      setBillingError(err.response?.data?.detail ?? 'Billing cycle failed. Check the server logs.')
+      setBillingResult('error')
+    } finally {
+      setBillingRunning(false)
+    }
+  }
+
   const activeCustomers = customers.filter(c => c.is_active)
   const activePlans = plans.filter(p => p.is_active).length
 
@@ -114,6 +137,62 @@ export default function Dashboard() {
           color="bg-amber-500"
         />
       </div>
+
+      {/* ── Billing Cycle Demo ─────────────────────────────────────────────── */}
+      <Card style={{ padding: '24px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}>
+          {/* Left: label + note */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Play size={15} style={{ color: '#d97706' }} />
+              <h2 style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>Billing Engine</h2>
+            </div>
+            <p style={{ fontSize: '12px', color: '#94a3b8', maxWidth: '420px', lineHeight: '1.5' }}>
+              Demo only — triggers the billing engine to generate invoices for due subscriptions.
+            </p>
+          </div>
+          {/* Right: button + feedback */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+            {/* Orange/amber button to match the "demo" nature of the action */}
+            <button
+              onClick={handleRunBillingCycle}
+              disabled={billingRunning}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '7px',
+                padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
+                cursor: billingRunning ? 'not-allowed' : 'pointer',
+                border: 'none',
+                background: billingRunning ? '#fcd34d' : '#f59e0b',
+                color: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+                transition: 'background 0.15s',
+              }}
+            >
+              {billingRunning ? (
+                // Spinner — inline SVG avoids any Tailwind dependency
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              ) : (
+                <Play size={14} />
+              )}
+              {billingRunning ? 'Running…' : 'Run Billing Cycle (Demo)'}
+            </button>
+            {/* Success message */}
+            {billingResult === 'success' && (
+              <p style={{ fontSize: '13px', color: '#15803d', fontWeight: '500' }}>
+                ✓ Billing cycle complete — check Invoices to see the generated invoice.
+              </p>
+            )}
+            {/* Error message */}
+            {billingResult === 'error' && (
+              <p style={{ fontSize: '13px', color: '#dc2626', fontWeight: '500' }}>
+                ✗ {billingError}
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Recent panels */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '32px' }}>
