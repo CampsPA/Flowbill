@@ -50,8 +50,8 @@ def generate_invoice_pdf(invoice, customer, tenant_settings) -> bytes:
     story = []
 
     # Header table with company name and brand color from tenant_settings
-    brand_color = HexColor(tenant_settings.brand_color) if tenant_settings.brand_color else HexColor("#4f46e5")
-    header = Table([[Paragraph(tenant_settings.company_name, styles["Title"])]])
+    brand_color = HexColor(tenant_settings.brand_color) if tenant_settings and tenant_settings.brand_color else HexColor("#4f46e5")
+    header = Table([[Paragraph(tenant_settings.company_name if tenant_settings else "FlowBill", styles["Title"])]])
     header.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), brand_color) 
     ]))
