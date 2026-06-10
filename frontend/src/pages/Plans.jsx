@@ -36,7 +36,8 @@ export default function Plans() {
   const [editSuccess, setEditSuccess] = useState(false)
 
   function load() {
-    api.get('/plans/').then(r => setPlans(r.data)).catch(() => {}).finally(() => setLoading(false))
+    // Filter out inactive plans so deactivated plans never appear in the table
+    api.get('/plans/').then(r => setPlans(r.data.filter(p => p.is_active))).catch(() => {}).finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -115,8 +116,9 @@ export default function Plans() {
       await api.delete(`/plans/${plan.id}`)
       // Immediately remove the plan from local state so the row disappears at once,
       // then re-fetch in the background to stay in sync with the server.
+      // Filter the plan out of local state immediately — no load() needed
+      // since load() would re-fetch and the deactivated plan would come back
       setPlans(prev => prev.filter(p => p.id !== plan.id))
-      load()
     } catch (err) {
       // Backend returns "Cannot delete a plan with active subscribers. Deactivate it instead."
       alert(err.response?.data?.detail ?? 'Failed to delete plan.')

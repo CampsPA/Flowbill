@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-// I2: added Package icon for line items section
-import { ArrowLeft, Download, CreditCard, Package } from 'lucide-react'
+import { ArrowLeft, Download, CreditCard, Package, CheckCircle } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -25,6 +24,10 @@ export default function InvoiceDetail() {
   const [lineItems, setLineItems] = useState([])  // I2: state for line items
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  // Mark as Paid state — tracks the in-flight request and inline feedback
+  const [markingPaid, setMarkingPaid] = useState(false)
+  const [paidResult, setPaidResult] = useState(null)   // null | 'success' | 'error'
+  const [paidError, setPaidError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -38,6 +41,28 @@ export default function InvoiceDetail() {
     }).catch(() => navigate('/app/invoices'))
     .finally(() => setLoading(false))
   }, [id])
+
+  async function handleMarkPaid() {
+    if (!confirm('Mark this invoice as paid? This will record the payment manually.')) return
+    setMarkingPaid(true)
+    setPaidResult(null)
+    setPaidError('')
+    try {
+      // Send status + paid_at timestamp; backend PATCH /invoices/{id} accepts both fields
+      const updated = await api.patch(`/invoices/${id}`, {
+        status: 'paid',
+        paid_at: new Date().toISOString(),  // current UTC timestamp in ISO 8601 format
+      })
+      // Update local invoice state so the Status and Paid At cards reflect the change immediately
+      setInvoice(updated.data)
+      setPaidResult('success')
+    } catch (err) {
+      setPaidError(err.response?.data?.detail ?? 'Failed to mark invoice as paid.')
+      setPaidResult('error')
+    } finally {
+      setMarkingPaid(false)
+    }
+  }
 
   async function handleDownload() {
     if (!invoice) return
@@ -66,10 +91,27 @@ export default function InvoiceDetail() {
           <h1 className="text-xl font-bold text-slate-900">Invoice #{invoice.id}</h1>
           <p className="text-sm text-slate-400">Customer #{invoice.customer_id} · Subscription #{invoice.subscription_id}</p>
         </div>
+        {/* Only show Mark as Paid when the invoice is not already paid */}
+        {invoice.status !== 'paid' && (
+          <Button onClick={handleMarkPaid} loading={markingPaid} variant="secondary">
+            <CheckCircle size={14} /> Mark as Paid
+          </Button>
+        )}
         <Button onClick={handleDownload} loading={downloading} variant="secondary">
           <Download size={14} /> Download PDF
         </Button>
       </div>
+      {/* Inline success/error feedback — shown directly under the header, above the stat cards */}
+      {paidResult === 'success' && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <CheckCircle size={14} /> Invoice marked as paid successfully.
+        </div>
+      )}
+      {paidResult === 'error' && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+          {paidError}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[

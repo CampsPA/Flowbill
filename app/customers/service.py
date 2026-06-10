@@ -13,6 +13,10 @@ from app.subscriptions import repository as subscriptions_repository
 from app.core.enums import SubscriptionStatus
 from sqlalchemy import select
 from app.subscriptions.model import Subscription
+# Customer profile settings creation
+from app.tenant_settings import repository as tenant_settings_repository
+from app.tenant_settings.schemas import TenantSettingsUpdate
+
 
 
 logger = logging.getLogger("app.customers.service")
@@ -27,7 +31,12 @@ def create_customer(db : Session, customer: CustomerCreate):
         logger.info("Customer with email address already registered.")
         raise DuplicateRecord("Email", customer.email)
     
-    return repository.create_customer(db, customer)
+    new_customer =  repository.create_customer(db, customer)
+
+    # Create a record of the tenant to use in its profile so that when the customer signs up he can set up  the profile
+    tenant_settings_record = tenant_settings_repository.upsert(db,new_customer.id, TenantSettingsUpdate(company_name=new_customer.name))
+    
+    return new_customer
 
 
 # get customer by id
