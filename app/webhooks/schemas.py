@@ -12,6 +12,7 @@ from datetime import datetime
 # Data coming in to the API (provided by user)
 class WebhookEndpointCreate(BaseModel):
     # Think of this in terms of what would you ask from the client inorder to register the URL
+    customer_id : int  # which customer is registering this endpoint
     url : str # where should the notification be sent
     events : list[str] # which events are important to the client
 

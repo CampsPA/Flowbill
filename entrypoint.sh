@@ -10,6 +10,9 @@ set -e
 # Set up logic
  alembic upgrade head
 
+# Clear stale .pyc files and __pycache__ dirs so Python always loads fresh source
+find /app -name "*.pyc" -delete && find /app -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
  # Run the main container command -> this tiggers CMD to run uvicorn
 exec "$@"
 
