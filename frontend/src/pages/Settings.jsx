@@ -4,6 +4,8 @@ import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input, { Select } from '../components/ui/Input'
+import LogoUpload from '../components/ui/LogoUpload'
+import ColorPicker from '../components/ui/ColorPicker'
 
 export default function Settings() {
   const [customers, setCustomers] = useState([])
@@ -52,8 +54,6 @@ export default function Settings() {
     } finally { setSaving(false) }
   }
 
-  const validColor = form.brand_color && /^#[0-9A-Fa-f]{6}$/.test(form.brand_color)
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       {/* Header */}
@@ -100,17 +100,10 @@ export default function Settings() {
 
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '520px' }}>
               <Input label="Company Name" placeholder="Acme Corp" value={form.company_name} onChange={e => set('company_name', e.target.value)} />
-              <Input label="Logo URL" type="url" placeholder="https://example.com/logo.png" value={form.logo_url} onChange={e => set('logo_url', e.target.value)} />
+              <LogoUpload value={form.logo_url} onChange={v => set('logo_url', v)} />
               <Input label="Business Address" placeholder="123 Main St, New York, NY 10001" value={form.address} onChange={e => set('address', e.target.value)} />
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
-                  <Input label="Brand Color (hex)" placeholder="#4f46e5" value={form.brand_color} onChange={e => set('brand_color', e.target.value)} />
-                </div>
-                {validColor && (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', border: '1px solid #e8ecf2', flexShrink: 0, background: form.brand_color }} />
-                )}
-              </div>
+              <ColorPicker label="Brand Color" value={form.brand_color} onChange={v => set('brand_color', v)} />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Email Footer</label>

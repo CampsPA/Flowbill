@@ -20,7 +20,7 @@ router = APIRouter(tags=['Webhooks'])
 @router.post('/', response_model=WebhookEndpointCreateResponse)
 #@limiter.limit("5/minute")
 def create_webhook_endpoint(endpoint_data : WebhookEndpointCreate,  db : Session = Depends(get_db), current_user = Depends(get_current_user)):
-    return service.create_webhook_endpoint(db, endpoint_data, current_user.id)
+    return service.create_webhook_endpoint(db, endpoint_data, endpoint_data.customer_id)
 
 
 # Get webhook by id

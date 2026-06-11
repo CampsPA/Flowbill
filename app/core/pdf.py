@@ -49,8 +49,15 @@ def generate_invoice_pdf(invoice, customer, tenant_settings) -> bytes:
     # Build the story list with these elements in order:
     story = []
 
-    # Header table with company name and brand color from tenant_settings
-    brand_color = HexColor(tenant_settings.brand_color) if tenant_settings and tenant_settings.brand_color else HexColor("#4f46e5")
+    # Header table with company name and brand color from tenant_settings.
+    # Wrap HexColor() in a try/except so a malformed value (e.g. a base64 logo accidentally
+    # stored in brand_color, or a missing '#') falls back to the default indigo instead of crashing.
+    _DEFAULT_COLOR = "#4f46e5"
+    try:
+        brand_color = HexColor(tenant_settings.brand_color) if tenant_settings and tenant_settings.brand_color else HexColor(_DEFAULT_COLOR)
+    except Exception:
+        logger.warning(f"Invalid brand_color value for invoice {invoice.id}; falling back to {_DEFAULT_COLOR}")
+        brand_color = HexColor(_DEFAULT_COLOR)
     header = Table([[Paragraph(tenant_settings.company_name if tenant_settings else "FlowBill", styles["Title"])]])
     header.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), brand_color) 

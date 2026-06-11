@@ -43,7 +43,7 @@ export default function Dashboard() {
           api.get('/plans/').catch(() => ({ data: [] })),
         ])
         setCustomers(cList)
-        setPlans(pList)
+        setPlans(pList.filter(p => p.is_active))
 
         // Build plan price map
         const planMap = {}

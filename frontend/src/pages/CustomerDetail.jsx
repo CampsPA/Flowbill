@@ -22,6 +22,7 @@ export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [customer, setCustomer] = useState(null)
+  const [logoUrl, setLogoUrl] = useState(null)
   const [subs, setSubs] = useState([])
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,11 +36,13 @@ export default function CustomerDetail() {
       api.get(`/customers/${id}`),
       api.get(`/subscriptions/?customer_id=${id}`).catch(() => ({ data: [] })),
       api.get(`/invoices/?customer_id=${id}`).catch(() => ({ data: [] })),
-    ]).then(([c, s, inv]) => {
+      api.get(`/tenant-settings/${id}`).catch(() => ({ data: {} })),
+    ]).then(([c, s, inv, settings]) => {
       setCustomer(c.data)
       setForm({ name: c.data.name, email: c.data.email })
       setSubs(s.data)
       setInvoices(inv.data)
+      setLogoUrl(settings.data.logo_url ?? null)
     }).catch(() => navigate('/app/customers'))
     .finally(() => setLoading(false))
   }
@@ -90,9 +93,13 @@ export default function CustomerDetail() {
           <ArrowLeft size={16} />
         </button>
         <div className="flex items-center gap-3 flex-1">
-          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-base">
-            {customer.name.charAt(0).toUpperCase()}
-          </div>
+          {logoUrl ? (
+            <img src={logoUrl} alt={customer.name} style={{ width: '40px', height: '40px', maxHeight: '40px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e8ecf2', background: '#fff', flexShrink: 0 }} />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-base">
+              {customer.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
             <h1 className="text-xl font-bold text-slate-900">{customer.name}</h1>
             <p className="text-sm text-slate-400">{customer.email}</p>

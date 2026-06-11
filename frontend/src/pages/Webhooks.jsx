@@ -6,7 +6,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
-import Input from '../components/ui/Input'
+import Input, { Select } from '../components/ui/Input'
 import EmptyState from '../components/ui/EmptyState'
 import { Table, Thead, Th, Tbody, Tr, Td } from '../components/ui/Table'
 
@@ -22,10 +22,11 @@ function fmt(dt) {
 
 export default function Webhooks() {
   const [endpoints, setEndpoints] = useState([])
+  const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [deliverModal, setDeliverModal] = useState(null)
-  const [form, setForm] = useState({ url: '', events: [] })
+  const [form, setForm] = useState({ url: '', events: [], customer_id: '' })
   const [deliverForm, setDeliverForm] = useState({ event_type: '', payload: '{}' })
   const [saving, setSaving] = useState(false)
   const [delivering, setDelivering] = useState(false)
@@ -41,7 +42,10 @@ export default function Webhooks() {
   function load() {
     api.get('/webhooks/').then(r => setEndpoints(r.data)).catch(() => {}).finally(() => setLoading(false))
   }
-  useEffect(load, [])
+  useEffect(() => {
+    load()
+    api.get('/customers/').then(r => setCustomers(r.data.filter(c => c.is_active))).catch(() => {})
+  }, [])
 
   function toggleEvent(evt) {
     setForm(f => ({
@@ -57,9 +61,14 @@ export default function Webhooks() {
 
   async function handleCreate(e) {
     e.preventDefault(); setSaving(true); setError('')
+    console.log('[Webhooks] form state at submit:', form)
     try {
-      const { data } = await api.post('/webhooks/', { url: form.url, events: form.events })
-      setSecret(data.secret); setModal(false); setForm({ url: '', events: [] }); load()
+      const { data } = await api.post('/webhooks/', {
+        url: form.url,
+        events: form.events,
+        customer_id: parseInt(form.customer_id),
+      })
+      setSecret(data.secret); setModal(false); setForm({ url: '', events: [], customer_id: '' }); load()
     } catch (err) {
       setError(err.response?.data?.detail ?? 'Error registering endpoint')
     } finally { setSaving(false) }
@@ -182,6 +191,10 @@ export default function Webhooks() {
       <Modal open={modal} onClose={() => { setModal(false); setError('') }} title="Register Webhook Endpoint" size="lg">
         <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>{error}</div>}
+          <Select label="Customer" value={form.customer_id} onChange={e => setForm(f => ({ ...f, customer_id: e.target.value }))} required>
+            <option value="">— Select a customer —</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.email})</option>)}
+          </Select>
           <Input label="Endpoint URL" type="url" placeholder="https://example.com/webhooks" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} required />
           <div>
             <p style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '12px' }}>Events to subscribe</p>

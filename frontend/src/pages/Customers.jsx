@@ -8,6 +8,8 @@ import Button from '../components/ui/Button'
 import EmptyState from '../components/ui/EmptyState'
 import Modal from '../components/ui/Modal'
 import Input from '../components/ui/Input'
+import LogoUpload from '../components/ui/LogoUpload'
+import ColorPicker from '../components/ui/ColorPicker'
 import { Table, Thead, Th, Tbody, Tr, Td } from '../components/ui/Table'
 
 function fmt(dt) {
@@ -18,16 +20,34 @@ function fmt(dt) {
 export default function Customers() {
   const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
+  const [logoMap, setLogoMap] = useState({})  // { customer_id: logo_url } — populated after list loads
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
-  // C3: removed phone field — backend Customer model has no phone column
-  const [form, setForm] = useState({ name: '', email: '' })
+  const [form, setForm] = useState({ name: '', email: '', logo_url: '', brand_color: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   function load() {
-    api.get('/customers/').then(r => setCustomers(r.data)).catch(() => {}).finally(() => setLoading(false))
+    api.get('/customers/')
+      .then(r => {
+        setCustomers(r.data)
+        // Fetch tenant settings for every customer in parallel to get logo_url values.
+        // Failures (customer has no settings yet) are swallowed — they just won't appear in the map.
+        Promise.all(
+          r.data.map(c =>
+            api.get(`/tenant-settings/${c.id}`)
+              .then(s => ({ id: c.id, logo: s.data.logo_url }))
+              .catch(() => ({ id: c.id, logo: null }))
+          )
+        ).then(results => {
+          const map = {}
+          results.forEach(({ id, logo }) => { if (logo) map[id] = logo })
+          setLogoMap(map)
+        })
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }
   useEffect(load, [])
 
@@ -39,9 +59,15 @@ export default function Customers() {
   async function handleCreate(e) {
     e.preventDefault(); setSaving(true); setError('')
     try {
-      await api.post('/customers/', form)
-      // C3: reset without phone field
-      setModal(false); setForm({ name: '', email: '' }); load()
+      // Only include logo_url in the payload if a file was actually uploaded
+      const payload = { name: form.name, email: form.email }
+      if (form.logo_url) payload.logo_url = form.logo_url
+      // brand_color goes to tenant-settings, not the customer record — upsert after customer creation
+      const customer = await api.post('/customers/', payload)
+      if (form.brand_color) {
+        await api.put(`/tenant-settings/${customer.data.id}`, { brand_color: form.brand_color }).catch(() => {})
+      }
+      setModal(false); setForm({ name: '', email: '', logo_url: '', brand_color: '' }); load()
     } catch (err) {
       setError(err.response?.data?.detail ?? 'Error creating customer')
     } finally { setSaving(false) }
@@ -90,9 +116,13 @@ export default function Customers() {
                 <Tr key={c.id} onClick={() => navigate(`/app/customers/${c.id}`)}>
                   <Td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '700', fontSize: '13px', flexShrink: 0 }}>
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
+                      {logoMap[c.id] ? (
+                        <img src={logoMap[c.id]} alt={c.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'contain', border: '1px solid #e8ecf2', background: '#fff', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '700', fontSize: '13px', flexShrink: 0 }}>
+                          {c.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <p style={{ fontWeight: '600', color: '#0f172a', fontSize: '14px' }}>{c.name}</p>
                         <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>{c.email}</p>
@@ -120,7 +150,8 @@ export default function Customers() {
           {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>{error}</div>}
           <Input label="Full Name" placeholder="Acme Corp" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
           <Input label="Email Address" type="email" placeholder="billing@acme.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
-          {/* C3: phone field removed — not in the Customer data model */}
+          <LogoUpload value={form.logo_url} onChange={v => setForm(f => ({ ...f, logo_url: v }))} />
+          <ColorPicker label="Brand Color" value={form.brand_color} onChange={v => setForm(f => ({ ...f, brand_color: v }))} />
           <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
             <Button type="button" variant="secondary" onClick={() => setModal(false)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
             <Button type="submit" loading={saving} style={{ flex: 1, justifyContent: 'center' }}>Create Customer</Button>

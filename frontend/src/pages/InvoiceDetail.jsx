@@ -20,8 +20,9 @@ export default function InvoiceDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [invoice, setInvoice] = useState(null)
+  const [logoUrl, setLogoUrl] = useState(null)
   const [payments, setPayments] = useState([])
-  const [lineItems, setLineItems] = useState([])  // I2: state for line items
+  const [lineItems, setLineItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
   // Mark as Paid state — tracks the in-flight request and inline feedback
@@ -33,11 +34,15 @@ export default function InvoiceDetail() {
     Promise.all([
       api.get(`/invoices/${id}`),
       api.get(`/payments/invoice/${id}`).catch(() => ({ data: [] })),
-      // I2: fetch line items for this invoice; gracefully fall back to empty array
       api.get(`/line-items/invoice/${id}`).catch(() => ({ data: [] })),
     ]).then(([inv, pay, items]) => {
-      setInvoice(inv.data); setPayments(pay.data)
-      setLineItems(items.data)  // I2: store fetched line items
+      setInvoice(inv.data)
+      setPayments(pay.data)
+      setLineItems(items.data)
+      // Fetch tenant settings using the customer_id from the invoice to get their logo
+      api.get(`/tenant-settings/${inv.data.customer_id}`)
+        .then(s => setLogoUrl(s.data.logo_url ?? null))
+        .catch(() => {})  // no settings = no logo, keep null fallback
     }).catch(() => navigate('/app/invoices'))
     .finally(() => setLoading(false))
   }, [id])
@@ -87,9 +92,14 @@ export default function InvoiceDetail() {
         <button onClick={() => navigate('/app/invoices')} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-[#e3e8ef]">
           <ArrowLeft size={16} />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-slate-900">Invoice #{invoice.id}</h1>
-          <p className="text-sm text-slate-400">Customer #{invoice.customer_id} · Subscription #{invoice.subscription_id}</p>
+        <div className="flex items-center gap-3 flex-1">
+          {logoUrl && (
+            <img src={logoUrl} alt="Customer logo" style={{ maxHeight: '40px', maxWidth: '100px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e8ecf2', background: '#fff', padding: '3px', flexShrink: 0 }} />
+          )}
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Invoice #{invoice.id}</h1>
+            <p className="text-sm text-slate-400">Customer #{invoice.customer_id} · Subscription #{invoice.subscription_id}</p>
+          </div>
         </div>
         {/* Only show Mark as Paid when the invoice is not already paid */}
         {invoice.status !== 'paid' && (
