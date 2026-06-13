@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Zap, RefreshCw, Bell, FileText } from 'lucide-react'
 import heroBg from '../akif-waseem-MmPxGnlmVGA-unsplash.jpg'
+import subscriptionsImg from '../subscriptions.jpg'
+import dunningImg from '../dunning.jpg'
+import invoicingImg from '../invoicing.jpg'
 
 const features = [
   {
@@ -8,18 +11,21 @@ const features = [
     title: 'Subscriptions',
     description: 'Automated billing cycles, upgrades, and cancellations.',
     color: 'text-indigo-600',
+    image: subscriptionsImg,
   },
   {
     icon: Bell,
     title: 'Dunning',
     description: 'Smart retry logic that recovers failed payments automatically.',
     color: 'text-violet-600',
+    image: dunningImg,
   },
   {
     icon: FileText,
     title: 'Invoicing',
     description: 'Professional PDF invoices generated and delivered instantly.',
     color: 'text-slate-600',
+    image: invoicingImg,
   },
 ]
 
@@ -88,14 +94,17 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section id="features" style={{ paddingTop: '120px', paddingBottom: '120px' }} className="px-8 border-t border-[#f0f0f0]">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-16">
-            {features.map(({ icon: Icon, title, description, color }) => (
-              <div key={title}>
-                <Icon size={28} className={`${color} mb-6`} strokeWidth={1.5} />
-                <h3 className="font-semibold text-slate-900 text-base mb-2">{title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{description}</p>
+      <section id="features" style={{ paddingTop: '120px', paddingBottom: '120px', borderTop: '1px solid #f0f0f0' }}>
+        <div style={{ width: '100%', padding: '0 48px', boxSizing: 'border-box' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', width: '100%' }}>
+            {features.map(({ icon: Icon, title, description, color, image }) => (
+              <div key={title} style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column' }}>
+                <img src={image} alt={title} style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }} />
+                <div style={{ padding: '28px' }}>
+                  <Icon size={26} className={`${color} mb-4`} strokeWidth={1.5} />
+                  <h3 style={{ fontWeight: '700', color: '#0f172a', fontSize: '20px', marginBottom: '10px' }}>{title}</h3>
+                  <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.7' }}>{description}</p>
+                </div>
               </div>
             ))}
           </div>

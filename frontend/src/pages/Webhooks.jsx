@@ -148,11 +148,13 @@ export default function Webhooks() {
       )}
 
       {/* Customer filter */}
-      <Card style={{ padding: '20px 24px' }}>
-        <Select label="Filter by Customer" value={customerId} onChange={e => setCustomerId(e.target.value)}>
-          <option value="">— Select a customer —</option>
-          {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.email})</option>)}
-        </Select>
+      <Card style={{ padding: '20px 24px', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ width: '100%' }}>
+          <Select label="Filter by Customer" value={customerId} onChange={e => setCustomerId(e.target.value)}>
+            <option value="">— Select a customer —</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.email})</option>)}
+          </Select>
+        </div>
       </Card>
 
       {/* Table */}
@@ -167,11 +169,11 @@ export default function Webhooks() {
           <Table>
             <Thead>
               <Tr header>
-                <Th width="30%">URL</Th>
-                <Th width="32%">Events</Th>
-                <Th width="12%">Status</Th>
-                <Th width="14%">Created</Th>
-                <Th width="12%">Actions</Th>
+                <Th width="20%">URL</Th>
+                <Th width="24%">Events</Th>
+                <Th width="10%">Status</Th>
+                <Th width="16%">Created</Th>
+                <Th width="30%">Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -189,7 +191,7 @@ export default function Webhooks() {
                   <Td><Badge status={ep.is_active ? 'active' : 'cancelled'} label={ep.is_active ? 'Active' : 'Inactive'} /></Td>
                   <Td muted>{fmt(ep.created_at)}</Td>
                   <Td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {/* I5: Edit button opens the edit modal pre-populated with current values */}
                       <Button variant="ghost" size="sm" onClick={() => { setEditForm({ url: ep.url, events: [...ep.events] }); setEditError(''); setEditModal(ep) }}>
                         <Edit2 size={12} /> Edit
