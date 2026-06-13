@@ -23,9 +23,7 @@ from app.webhooks.model import WebhookEndpoint
 import httpx
 # Custom exceptions
 from app.core.exceptions import DuplicateRecord
-#
-from sqlalchemy import cast
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB   # JSONB supports @> containment operator, plain JSON does not
 
 
 logger = logging.getLogger("app.webhooks.service")
@@ -82,7 +80,7 @@ def deliver_webhook(db : Session, customer_id : int, event_type : str, payload :
     endpoints = db.execute(select(WebhookEndpoint).where
                 (WebhookEndpoint.customer_id == customer_id,
                 WebhookEndpoint.is_active == True,
-                WebhookEndpoint.events.events.cast(JSONB).contains([event_type]))).scalars().all()
+                WebhookEndpoint.events.cast(JSONB).contains([event_type]))).scalars().all()
     
 
 
