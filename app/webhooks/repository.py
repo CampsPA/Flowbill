@@ -39,6 +39,15 @@ def get_webhook_endpoint_by_id(db : Session, endpoint_id : int, customer_id: int
         logger.info(f"Endpoint with endpoint_id {endpoint_id} successfully retrieved.")
     return endpoint
 
+# Get webhook endpoint by endpoint_id only - used by deliver endpoint
+# which needs to find the endpoint regardless of customer to get its customer_id
+def get_webhook_endpoint_by_id_only(db: Session, endpoint_id: int):
+    endpoint = db.execute(select(WebhookEndpoint).where(WebhookEndpoint.id == endpoint_id)).scalar_one_or_none()
+    if endpoint is None:
+        logger.info(f"No endpoint found with id {endpoint_id}.")
+        return None
+    return endpoint
+
 
 # get webhook endpoint by url
 def get_webhook_endpoint_by_url(db : Session, url : str, customer_id : int):

@@ -44,7 +44,10 @@ def create_webhook_endpoint(db : Session, endpoint : WebhookEndpointCreate, cust
 def get_webhook_endpoint_by_id(db : Session, endpoint_id : int, customer_id : int):
     return webhook_repository.get_webhook_endpoint_by_id(db, endpoint_id, customer_id)
 
-
+# Get webhook endpoint by id only without customer filter
+# Used by the deliver endpoint to look up the endpoint and retrieve its customer_id
+def get_webhook_endpoint_by_id_only(db: Session, endpoint_id: int):
+    return webhook_repository.get_webhook_endpoint_by_id_only(db, endpoint_id)
 
 
 # Get all webhook endpoints ( by customer)

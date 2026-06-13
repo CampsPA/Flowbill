@@ -23,13 +23,16 @@ function fmt(dt) {
 export default function Webhooks() {
   const [endpoints, setEndpoints] = useState([])
   const [customers, setCustomers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [customerId, setCustomerId] = useState('')  // selected customer for filtering
+  const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState(false)
-  const [deliverModal, setDeliverModal] = useState(null)
+  const [deliverModal, setDeliverModal] = useState(null)   // holds the full endpoint object
   const [form, setForm] = useState({ url: '', events: [], customer_id: '' })
   const [deliverForm, setDeliverForm] = useState({ event_type: '', payload: '{}' })
   const [saving, setSaving] = useState(false)
   const [delivering, setDelivering] = useState(false)
+  const [deliverResult, setDeliverResult] = useState(null)  // null | 'success' | 'error'
+  const [deliverError, setDeliverError] = useState('')
   const [error, setError] = useState('')
   const [secret, setSecret] = useState('')
   const [copied, setCopied] = useState(false)
@@ -39,13 +42,20 @@ export default function Webhooks() {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
 
-  function load() {
-    api.get('/webhooks/').then(r => setEndpoints(r.data)).catch(() => {}).finally(() => setLoading(false))
+  function load(cid) {
+    if (!cid) return
+    setLoading(true)
+    api.get(`/webhooks/?customer_id=${cid}`)
+      .then(r => setEndpoints(r.data))
+      .catch(() => setEndpoints([]))
+      .finally(() => setLoading(false))
   }
+
   useEffect(() => {
-    load()
     api.get('/customers/').then(r => setCustomers(r.data.filter(c => c.is_active))).catch(() => {})
   }, [])
+
+  useEffect(() => { load(customerId) }, [customerId])
 
   function toggleEvent(evt) {
     setForm(f => ({
@@ -68,7 +78,7 @@ export default function Webhooks() {
         events: form.events,
         customer_id: parseInt(form.customer_id),
       })
-      setSecret(data.secret); setModal(false); setForm({ url: '', events: [], customer_id: '' }); load()
+      setSecret(data.secret); setModal(false); setForm({ url: '', events: [], customer_id: '' }); load(customerId)
     } catch (err) {
       setError(err.response?.data?.detail ?? 'Error registering endpoint')
     } finally { setSaving(false) }
@@ -76,7 +86,7 @@ export default function Webhooks() {
 
   async function handleDelete(id) {
     if (!confirm('Deactivate this endpoint?')) return
-    await api.delete(`/webhooks/${id}`); load()
+    await api.delete(`/webhooks/${id}`); load(customerId)
   }
 
   // I5: toggle an event in the edit form's events array
@@ -92,20 +102,22 @@ export default function Webhooks() {
     e.preventDefault(); setEditSaving(true); setEditError('')
     try {
       await api.patch(`/webhooks/${editModal.id}`, { url: editForm.url, events: editForm.events })
-      setEditModal(null); load()  // I5: refresh list after saving
+      setEditModal(null); load(customerId)
     } catch (err) {
       setEditError(err.response?.data?.detail ?? 'Error updating endpoint')
     } finally { setEditSaving(false) }
   }
 
   async function handleDeliver(e) {
-    e.preventDefault(); setDelivering(true)
+    e.preventDefault(); setDelivering(true); setDeliverResult(null); setDeliverError('')
     try {
       let payload; try { payload = JSON.parse(deliverForm.payload) } catch { payload = {} }
-      await api.post(`/webhooks/${deliverModal}/deliver`, { event_type: deliverForm.event_type, payload })
-      setDeliverModal(null); alert('Webhook delivered successfully!')
-    } catch (err) { alert(err.response?.data?.detail ?? 'Delivery failed') }
-    finally { setDelivering(false) }
+      await api.post(`/webhooks/${deliverModal.id}/deliver`, { event_type: deliverForm.event_type, payload })
+      setDeliverResult('success')
+    } catch (err) {
+      setDeliverError(err.response?.data?.detail ?? 'Delivery failed.')
+      setDeliverResult('error')
+    } finally { setDelivering(false) }
   }
 
   return (
@@ -116,7 +128,7 @@ export default function Webhooks() {
           <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', letterSpacing: '-0.5px', marginBottom: '6px' }}>Webhooks</h1>
           <p style={{ fontSize: '14px', color: '#94a3b8' }}>Manage event endpoints and test deliveries</p>
         </div>
-        <Button onClick={() => { setSecret(''); setModal(true) }}><Plus size={15} /> Add Endpoint</Button>
+        <Button onClick={() => { setSecret(''); setForm(f => ({ ...f, customer_id: customerId })); setModal(true) }}><Plus size={15} /> Add Endpoint</Button>
       </div>
 
       {/* Signing secret banner */}
@@ -135,9 +147,19 @@ export default function Webhooks() {
         </div>
       )}
 
+      {/* Customer filter */}
+      <Card style={{ padding: '20px 24px' }}>
+        <Select label="Filter by Customer" value={customerId} onChange={e => setCustomerId(e.target.value)}>
+          <option value="">— Select a customer —</option>
+          {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.email})</option>)}
+        </Select>
+      </Card>
+
       {/* Table */}
       <Card>
-        {loading ? (
+        {!customerId ? (
+          <EmptyState icon={Webhook} title="Select a customer" description="Choose a customer above to view their webhook endpoints." />
+        ) : loading ? (
           <div style={{ padding: '80px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
         ) : endpoints.length === 0 ? (
           <EmptyState icon={Webhook} title="No webhook endpoints" description="Register an endpoint to receive event notifications." />
@@ -172,7 +194,7 @@ export default function Webhooks() {
                       <Button variant="ghost" size="sm" onClick={() => { setEditForm({ url: ep.url, events: [...ep.events] }); setEditError(''); setEditModal(ep) }}>
                         <Edit2 size={12} /> Edit
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => { setDeliverForm({ event_type: '', payload: '{}' }); setDeliverModal(ep.id) }}>
+                      <Button variant="ghost" size="sm" onClick={() => { setDeliverForm({ event_type: '', payload: '{}' }); setDeliverResult(null); setDeliverError(''); setDeliverModal(ep) }}>
                         <Send size={12} /> Test
                       </Button>
                       <Button variant="danger" size="sm" onClick={() => handleDelete(ep.id)}>
@@ -243,7 +265,19 @@ export default function Webhooks() {
       {/* Test delivery modal */}
       <Modal open={!!deliverModal} onClose={() => setDeliverModal(null)} title="Test Webhook Delivery">
         <form onSubmit={handleDeliver} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* N2: replaced free-text input with a dropdown so users can only pick valid event types */}
+          {/* Success banner */}
+          {deliverResult === 'success' && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#15803d' }}>
+              Webhook delivered successfully.
+            </div>
+          )}
+          {/* Error banner */}
+          {deliverResult === 'error' && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+              {deliverError}
+            </div>
+          )}
+          {/* Dropdown scoped to only the events this endpoint is subscribed to */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Event Type</label>
             <select
@@ -253,21 +287,21 @@ export default function Webhooks() {
               style={{ height: '48px', padding: '0 16px', border: '1px solid #d1d5db', borderRadius: '10px', fontSize: '14px', color: '#1e293b', background: '#fff', outline: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
             >
               <option value="">— Select event type —</option>
-              {/* N2: EVENT_OPTIONS is already defined at the top of this file */}
-              {EVENT_OPTIONS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+              {(deliverModal?.events ?? []).map(ev => <option key={ev} value={ev}>{ev}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Payload (JSON)</label>
+            <label style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>Payload (JSON — optional)</label>
             <textarea
               value={deliverForm.payload}
               onChange={e => setDeliverForm(f => ({ ...f, payload: e.target.value }))}
               rows={6}
+              placeholder="{}"
               style={{ border: '1px solid #d1d5db', borderRadius: '10px', padding: '12px 16px', fontSize: '13px', fontFamily: 'ui-monospace, monospace', color: '#1e293b', background: '#fff', outline: 'none', resize: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
             />
           </div>
           <div style={{ display: 'flex', gap: '12px', paddingTop: '4px' }}>
-            <Button type="button" variant="secondary" onClick={() => setDeliverModal(null)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={() => setDeliverModal(null)} style={{ flex: 1, justifyContent: 'center' }}>Close</Button>
             <Button type="submit" loading={delivering} style={{ flex: 1, justifyContent: 'center' }}><Send size={14} /> Send Test</Button>
           </div>
         </form>
