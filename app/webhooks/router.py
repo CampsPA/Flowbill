@@ -33,8 +33,8 @@ def get_webhook_endpoint_by_id(endpoint_id : int, db : Session = Depends(get_db)
 # Get all webhook endpoints ( by customer)
 @router.get('/', response_model=list[WebhookEndpointResponse])
 #@limiter.limit("5/minute")
-def get_all_webhook_endpoints( db : Session = Depends(get_db), current_user = Depends(get_current_user)):
-    return service.get_all_webhook_endpoints(db, current_user.id)
+def get_all_webhook_endpoints(customer_id: int, db : Session = Depends(get_db), current_user = Depends(get_current_user)):
+    return service.get_all_webhook_endpoints(db, customer_id)
 
 
 # Update webhook endpoint

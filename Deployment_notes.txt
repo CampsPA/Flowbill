@@ -1,0 +1,8 @@
+To ssh in : 
+
+cd "C:\Users\campo\OneDrive\Desktop\AWS_Deployment\Documents_AWS"
+ssh -i "portfolio-api-key-2.pem" ubuntu@52.3.232.204
+
+List containers: docker ps
+
+Check the status of containers: docker ps -a
