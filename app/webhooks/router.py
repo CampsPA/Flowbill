@@ -58,7 +58,7 @@ def deactivate_webhook_endpoint(endpoint_id : int, db : Session = Depends(get_db
 #@limiter.limit("5/minute")
 def deliver_webhook_endpoint(endpoint_id : int, deliver_request : WebhookDeliverRequest, db : Session = Depends(get_db), current_user = Depends(get_current_user)):
     # C4: look up the endpoint first to get its customer_id instead of blindly using current_user.id
-    endpoint = service.get_webhook_endpoint_by_id(db, endpoint_id, current_user.id)
+    endpoint = service.get_webhook_endpoint_by_id(db, endpoint_id)
     if endpoint is None:
         # C4: guard — return 404 if endpoint not found for this user
         raise HTTPException(status_code=404, detail="Webhook endpoint not found")
