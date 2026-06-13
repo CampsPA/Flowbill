@@ -21,7 +21,7 @@ class WebhookEndpointCreate(BaseModel):
 class WebhookEndpointUpdate(BaseModel):
     # Think of it in terms of data that can be changed at some point in the future
     # All fields optional (for editing)
-    customer_id: int  # which customer is registering this endpoint
+    customer_id: int  | None = None # which customer is registering this endpoint
     url : str | None = None # client may change where where he wants the url to be sent
     events : list[str] | None = None # client may wnat to add or remove an event
     
