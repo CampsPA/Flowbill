@@ -95,6 +95,10 @@ def generate_invoice_pdf(invoice, customer, tenant_settings) -> bytes:
             f"${item.amount_cents * item.quantity / 100:.2f}"
         ])
 
+    # Fall back to invoice amount_cents if no line items exist
+    if total_cents == 0:
+        total_cents = invoice.amount_cents
+
     # Append the values to rows
     rows.append(["", "", "Total", f"${total_cents / 100:.2f}"])
   
