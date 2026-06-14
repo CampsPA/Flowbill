@@ -7,7 +7,7 @@ from app.auth.dependencies import get_current_user
 from app.database import get_db
 import logging
 from app.invoices import service
-# from ..limiter import limiter - it will be created at phase 6
+from app.limiter import limiter 
 # PDF router
 from fastapi.responses import Response
 
@@ -21,7 +21,7 @@ router = APIRouter(tags=['Invoices'])
 
 # Create invoice endpoint
 @router.post('/', response_model=InvoiceResponse)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def create_invoice(invoice_data: InvoiceCreate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.create_invoice(db, invoice_data)
 
@@ -30,14 +30,14 @@ def create_invoice(invoice_data: InvoiceCreate, db:Session = Depends(get_db), cu
 # greedily match the literal segment "subscription" as an invoice_id integer.
 # Get invoices by subscription_id, response model as a list
 @router.get('/subscription/{subscription_id}', response_model=list[InvoiceResponse])
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def get_invoice_by_subscription(subscription_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_invoices_by_subscription(db, subscription_id)
 
 
 # PDF endpoint step #14 PDF document
 @router.get('/{invoice_id}/pdf')
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def pdf_creation(invoice_id: int , customer_id: int , db: Session = Depends(get_db),current_user = Depends(get_current_user)):
     pdf_bytes = service.get_invoice_pdf(db, invoice_id, customer_id)
     return Response(content=pdf_bytes, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename=invoice_{invoice_id}.pdf'})
@@ -45,28 +45,28 @@ def pdf_creation(invoice_id: int , customer_id: int , db: Session = Depends(get_
 
 # Send invoice email — registered ABOVE /{invoice_id} so "send" is not matched as an int
 @router.post('/{invoice_id}/send', status_code=200)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def send_invoice(invoice_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return service.send_invoice(db, invoice_id)
 
 
 # Get invoice by id
 @router.get('/{invoice_id}', response_model=InvoiceResponse)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def get_invoice_by_id(invoice_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_invoice_by_id(db, invoice_id)
 
 
 # Get all invoices (needs db and customer_id), response model as a list
 @router.get('/', response_model=list[InvoiceResponse])
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def get_all_invoices(customer_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_all_invoices(db, customer_id)
 
 
 # Update invoice (invoice_id)
 @router.patch('/{invoice_id}', response_model=InvoiceResponse)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def update_invoice(invoice_id : int, invoice_update : InvoiceUpdate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.update_invoice(db, invoice_id, invoice_update)
 

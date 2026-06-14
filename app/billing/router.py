@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.auth.dependencies import get_current_user
 from app.billing.cycle_runner import run_billing_cycle
 import logging
+from app.limiter import limiter 
 
 logger = logging.getLogger("app.billing.router")
 
@@ -12,6 +13,7 @@ router = APIRouter(tags=['Billing'])
 
 
 @router.post('/run', status_code=200)
+@limiter.limit("5/minute")
 def trigger_billing_cycle(current_user=Depends(get_current_user)):
     """
     Manually trigger one billing cycle run.

@@ -17,9 +17,9 @@ from app.billing.router import router as billing_router
 # Import logging
 from app.core.logging import setup_logging 
 # SlowAPI
-#from app.limiter import limiter
-#from slowapi import _rate_limit_exceeded_handler
-#from slowapi.errors import RateLimitExceeded
+from app.limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 # Sentry
 import sentry_sdk
 

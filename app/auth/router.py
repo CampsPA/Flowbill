@@ -6,7 +6,7 @@ from app.auth.service import  create_user, get_user_by_email
 from app.core.security import verify_password , create_access_token
 from app.database import get_db
 import logging
-# from ..limiter import limiter - it will be created at phase 6
+from app.limiter import limiter 
 
 
 # Get a logger instance
@@ -17,7 +17,7 @@ router = APIRouter(tags=['Authentication']) # Describe the routers purpose
 
 # Create register endpoint
 @router.post('/register',response_model=UserResponse)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def register(user_credentials: UserCreate, db:Session = Depends(get_db)):
     # Check user email, if user exists raise error, if not create user
     existing_user = get_user_by_email(db, user_credentials.email)
@@ -33,7 +33,7 @@ def register(user_credentials: UserCreate, db:Session = Depends(get_db)):
 
 # Create login endpoint
 @router.post('/login', response_model=Token)
-#@limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def login(form_data:OAuth2PasswordRequestForm = Depends(), db:Session = Depends(get_db)):
     existing_user = get_user_by_email(db, form_data.username)
     if not existing_user:
