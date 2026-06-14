@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, RefreshCw, PauseCircle, XCircle, ArrowUpCircle, PlayCircle, Edit2, Trash2, Check } from 'lucide-react'
+import { Plus, RefreshCw, PauseCircle, XCircle, ArrowUpCircle, PlayCircle, Edit2, Trash2, Check, FileText } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -57,6 +57,12 @@ export default function Subscriptions() {
   // ── I4: per-row action loading ──────────────────────────────────────────────
   // stores sub.id while any action (pause/resume/cancel/delete) is in-flight
   const [actionLoading, setActionLoading] = useState(null)
+
+  // ── View invoices by subscription modal ─────────────────────────────────────
+  const [subInvoicesModal, setSubInvoicesModal] = useState(null)  // sub object | null
+  const [subInvoices, setSubInvoices] = useState([])
+  const [subInvoicesLoading, setSubInvoicesLoading] = useState(false)
+  const [subInvoicesError, setSubInvoicesError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -159,6 +165,20 @@ export default function Subscriptions() {
     } finally { setEditSaving(false) }
   }
 
+  // ── View invoices by subscription handler ───────────────────────────────────
+  async function handleViewInvoices(sub) {
+    setSubInvoicesModal(sub)
+    setSubInvoices([])
+    setSubInvoicesError('')
+    setSubInvoicesLoading(true)
+    try {
+      const r = await api.get(`/invoices/subscription/${sub.id}`)
+      setSubInvoices(r.data)
+    } catch {
+      setSubInvoicesError('Failed to load invoices for this subscription.')
+    } finally { setSubInvoicesLoading(false) }
+  }
+
   // ── Delete (hard-delete) handler ─────────────────────────────────────────────
   async function handleDelete(sub) {
     if (!confirm('Are you sure you want to delete this subscription? This cannot be undone.')) return
@@ -236,6 +256,10 @@ export default function Subscriptions() {
                         {/* Edit button — opens the edit modal for this subscription */}
                         <Button variant="ghost" size="sm" disabled={isActing} onClick={() => openEdit(s)}>
                           <Edit2 size={12} /> Edit
+                        </Button>
+                        {/* View Invoices button — fetches invoices for this specific subscription */}
+                        <Button variant="ghost" size="sm" disabled={isActing} onClick={() => handleViewInvoices(s)}>
+                          <FileText size={12} /> Invoices
                         </Button>
                         {s.status === 'active' && (
                           <Button variant="ghost" size="sm" loading={isActing} disabled={isActing} onClick={() => handlePause(s)}>
@@ -360,6 +384,49 @@ export default function Subscriptions() {
             <Button type="submit" loading={editSaving} style={{ flex: 1, justifyContent: 'center' }}>Save Changes</Button>
           </div>
         </form>
+      </Modal>
+      {/* ── View Invoices by Subscription modal ──────────────────────────────── */}
+      <Modal
+        open={!!subInvoicesModal}
+        onClose={() => { setSubInvoicesModal(null); setSubInvoices([]) }}
+        title={`Invoices — Subscription #${subInvoicesModal?.id ?? ''}`}
+        size="lg"
+      >
+        {subInvoicesLoading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>Loading…</div>
+        ) : subInvoicesError ? (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626', marginBottom: '16px' }}>
+            {subInvoicesError}
+          </div>
+        ) : subInvoices.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>No invoices found for this subscription.</div>
+        ) : (
+          <Table>
+            <Thead>
+              <Tr header>
+                <Th width="10%">#</Th>
+                <Th width="22%">Amount</Th>
+                <Th width="18%">Status</Th>
+                <Th width="25%">Due Date</Th>
+                <Th width="25%">Paid At</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {subInvoices.map(inv => (
+                <Tr key={inv.id}>
+                  <Td mono muted>#{inv.id}</Td>
+                  <Td><span style={{ fontWeight: '600', color: '#0f172a' }}>${(inv.amount_cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></Td>
+                  <Td><Badge status={inv.status} /></Td>
+                  <Td muted>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</Td>
+                  <Td muted>{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '20px' }}>
+          <Button variant="secondary" onClick={() => { setSubInvoicesModal(null); setSubInvoices([]) }}>Close</Button>
+        </div>
       </Modal>
     </div>
   )

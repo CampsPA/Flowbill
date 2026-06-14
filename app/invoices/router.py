@@ -43,6 +43,13 @@ def pdf_creation(invoice_id: int , customer_id: int , db: Session = Depends(get_
     return Response(content=pdf_bytes, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename=invoice_{invoice_id}.pdf'})
 
 
+# Send invoice email — registered ABOVE /{invoice_id} so "send" is not matched as an int
+@router.post('/{invoice_id}/send', status_code=200)
+#@limiter.limit("5/minute")
+def send_invoice(invoice_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return service.send_invoice(db, invoice_id)
+
+
 # Get invoice by id
 @router.get('/{invoice_id}', response_model=InvoiceResponse)
 #@limiter.limit("5/minute")

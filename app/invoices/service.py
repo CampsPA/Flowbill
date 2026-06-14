@@ -18,6 +18,7 @@ from app.core.exceptions import ResourceNotFound
 from app.tenant_settings import repository  as tenant_settings_repository
 from app.core.pdf import generate_invoice_pdf
 from app.core.exceptions import PermissionDeniedError
+from app.core.email import send_invoice_email
 # We also use ResourceNotFound imported above
 
 
@@ -125,6 +126,21 @@ def get_invoice_pdf(db : Session, invoice_id : int, current_customer_id : int):
     customer = customers_repository.get_customer_by_id(db, invoice.customer_id)
 
     return generate_invoice_pdf(invoice, customer, tenant_settings)
+
+
+def send_invoice(db: Session, invoice_id: int):
+    invoice = repository.get_invoice_by_id(db, invoice_id)
+    if invoice is None:
+        raise ResourceNotFound("Invoice", invoice_id)
+
+    customer = customers_repository.get_customer_by_id(db, invoice.customer_id)
+    if customer is None:
+        raise ResourceNotFound("Customer", invoice.customer_id)
+
+    tenant_settings = tenant_settings_repository.get_by_customer_id(db, invoice.customer_id)
+    pdf_bytes = generate_invoice_pdf(invoice, customer, tenant_settings)
+    send_invoice_email(customer, invoice, pdf_bytes)
+    return {"message": "Invoice sent successfully"}
 
     
 

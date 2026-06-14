@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Download, CreditCard, Package, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Download, CreditCard, Package, CheckCircle, Send } from 'lucide-react'
 import api from '../api/client'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -29,6 +29,10 @@ export default function InvoiceDetail() {
   const [markingPaid, setMarkingPaid] = useState(false)
   const [paidResult, setPaidResult] = useState(null)   // null | 'success' | 'error'
   const [paidError, setPaidError] = useState('')
+  // Send Invoice state
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState(null)   // null | 'success' | 'error'
+  const [sendError, setSendError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -46,6 +50,18 @@ export default function InvoiceDetail() {
     }).catch(() => navigate('/app/invoices'))
     .finally(() => setLoading(false))
   }, [id])
+
+  async function handleSendInvoice() {
+    if (!confirm('Send this invoice to the customer email?')) return
+    setSending(true); setSendResult(null); setSendError('')
+    try {
+      await api.post(`/invoices/${id}/send`)
+      setSendResult('success')
+    } catch (err) {
+      setSendError(err.response?.data?.detail ?? 'Failed to send invoice.')
+      setSendResult('error')
+    } finally { setSending(false) }
+  }
 
   async function handleMarkPaid() {
     if (!confirm('Mark this invoice as paid? This will record the payment manually.')) return
@@ -107,6 +123,12 @@ export default function InvoiceDetail() {
             <CheckCircle size={14} /> Mark as Paid
           </Button>
         )}
+        {/* Only show Send Invoice when the invoice is not void */}
+        {invoice.status !== 'void' && (
+          <Button onClick={handleSendInvoice} loading={sending} variant="secondary">
+            <Send size={14} /> Send Invoice
+          </Button>
+        )}
         <Button onClick={handleDownload} loading={downloading} variant="secondary">
           <Download size={14} /> Download PDF
         </Button>
@@ -120,6 +142,16 @@ export default function InvoiceDetail() {
       {paidResult === 'error' && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
           {paidError}
+        </div>
+      )}
+      {sendResult === 'success' && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Send size={14} /> Invoice sent successfully.
+        </div>
+      )}
+      {sendResult === 'error' && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', fontSize: '14px', color: '#dc2626' }}>
+          {sendError}
         </div>
       )}
 
