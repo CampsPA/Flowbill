@@ -1,6 +1,6 @@
 # FlowBill — Subscription Billing Engine
 
-A production-grade subscription billing API modeled after Stripe Billing. Built to demonstrate backend engineering depth: automated billing cycles, dunning logic, webhook delivery with HMAC signatures, multi-tenant branding, and PDF invoice generation — all wired to a live cloud deployment.
+A production-grade subscription billing API modeled after Stripe Billing. Built to demonstrate backend engineering depth: automated billing cycles, dunning logic, webhook delivery with HMAC signatures, per-customer branding, and PDF invoice generation — all wired to a live cloud deployment.
 
 **Live Demo:** [http://52.3.232.204:3000](http://52.3.232.204:3000) · **API Docs:** [http://52.3.232.204:8001/docs](http://52.3.232.204:8001/docs)
 **Demo credentials:** `paul@flowbill.com` / `SecurePass123!`
@@ -26,12 +26,12 @@ A production-grade subscription billing API modeled after Stripe Billing. Built 
 - **Automated billing engine** — APScheduler runs every 24 hours, invoices all due subscriptions automatically
 - **Dunning engine** — automatic payment retry on failed charges with configurable backoff
 - **Stripe payment processing** — charge customers and reconcile payment state via webhooks
-- **PDF invoice generation** — per-tenant branded invoices with logo, brand colors, and address (ReportLab)
+- **PDF invoice generation** — per-customer branded invoices with logo, brand colors, and address (ReportLab)
 - **Invoice email delivery** — send invoices directly to customers via Resend
 - **Webhook system** — outbound webhooks with HMAC-SHA256 request signing and test delivery endpoint
 - **Rate limiting** — SlowAPI + Redis, 5 requests/minute per endpoint
 - **JWT authentication** — stateless auth with secure token issuance and validation
-- **Multi-tenant branding** — each customer can upload a logo, set brand colors, and configure billing address
+- **Per-customer branding** — each customer can upload a logo, set brand colors, and configure a billing address
 - **Full test suite** — 17 passing tests covering auth, customers, plans, subscriptions, invoices, and billing cycle
 
 ---
@@ -60,7 +60,7 @@ app/
 ├── payments/       # Payment attempt tracking
 ├── plans/          # Billing plan definitions
 ├── subscriptions/  # Subscription state machine
-├── tenant_settings/# Per-tenant logo, brand colors, address
+├── tenant_settings/# Per-customer logo, brand colors, address
 ├── webhooks/       # Endpoint registration, HMAC delivery, test trigger
 └── core/           # Email, PDF, security, exceptions, enums
 ```
@@ -128,7 +128,7 @@ This reflects a real-world augmented workflow: backend engineers can use AI to s
 |---|---|
 | Single-tenant schema | Add `organization_id` to all tables; enforce via RLS |
 | No token revocation | Redis blacklist on `POST /auth/logout` |
-| Logo not rendered in PDF | Pass `tenant_settings.logo_url` into ReportLab canvas |
+| Logo not rendered in PDF | Pass `customer_settings.logo_url` into ReportLab canvas |
 | Plans with active subscribers cannot be hard-deleted | Add subscriber count guard in `deactivate_plan` service |
 | Billing runs in-process | Move to Celery + Redis or AWS EventBridge |
 | No idempotency keys | Add `idempotency_key` column to invoices to prevent duplicate billing on retry |
