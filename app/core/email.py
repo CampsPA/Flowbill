@@ -18,7 +18,7 @@ def send_invoice_email(customer, invoice, pdf_bytes):
     encoded_bytes = base64.b64encode(pdf_bytes).decode('utf-8')
 
     params = {
-        "from": "user@mail.com" ,
+        "from": "onboarding@resend.dev" , # used to test sending email
         "to": [customer.email], 
         "subject": f"Invoice #{invoice.id}",
         "text": "Please find your invoice attached.",
