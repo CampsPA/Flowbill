@@ -18,37 +18,37 @@ logger = logging.getLogger("app.customers.router")
 router = APIRouter(tags=['Customers'])
 
 # Create customer endpoint
-@limiter.limit("5/minute")
 @router.post('/',response_model=CustomerResponse)
+@limiter.limit("5/minute")
 def create_customer(request: Request, customer_data: CustomerCreate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.create_customer(db, customer_data)
 
 
 # Get custmomer by id endpoint
-@limiter.limit("5/minute")
 @router.get('/{customer_id}', response_model=CustomerResponse)
+@limiter.limit("5/minute")
 def get_customer_by_id(request: Request, customer_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_customer_by_id(db, customer_id)
 
 
 # Get all customers
-@limiter.limit("5/minute")
 @router.get('/', response_model=list[CustomerResponse])
+@limiter.limit("5/minute")
 def get_customers(request: Request, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_all_customers(db)
 
 
 # Update customers
-@limiter.limit("5/minute")
 @router.patch('/{customer_id}', response_model=CustomerResponse)
+@limiter.limit("5/minute")
 def update_customer(request: Request, customer_id : int, customer_update : CustomerUpdate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.update_customer(db, customer_id, customer_update)
 
 
 # Customers hard delete: registered BEFORE /{customer_id} so FastAPI matches the more
 # specific /hard path first and never confuses it with the generic delete route below.
-@limiter.limit("5/minute")
 @router.delete('/{customer_id}/hard', status_code=200)
+@limiter.limit("5/minute")
 def hard_delete_customer(request: Request, customer_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     # Customers hard delete: delegate to service which cancels subs then removes the row
     service.hard_delete_customer(db, customer_id)
@@ -57,7 +57,7 @@ def hard_delete_customer(request: Request, customer_id: int, db: Session = Depen
 
 
 # Deactivate (soft-delete) customer — registered AFTER /hard so the specific route wins
-@limiter.limit("5/minute")
 @router.delete('/{customer_id}', response_model=CustomerResponse)
+@limiter.limit("5/minute")
 def deactivate_customer(request: Request, customer_id : int,  db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.deactivate_customer(db, customer_id)

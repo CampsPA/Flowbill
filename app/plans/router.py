@@ -18,35 +18,35 @@ router = APIRouter(tags=['Plans'])
 
 
 # Create plan endpoint
-@limiter.limit("5/minute")
 @router.post('/',response_model=PlanResponse)
+@limiter.limit("5/minute")
 def create_plan(request: Request, plan_data: PlanCreate, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.create_plan(db, plan_data)
 
 
 # Get plan by id endpoint
-@limiter.limit("5/minute")
 @router.get('/{plan_id}', response_model=PlanResponse)
+@limiter.limit("5/minute")
 def get_plan_by_id(request: Request, plan_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_plan_by_id(db, plan_id)
 
 
 # Get all plans
-@limiter.limit("5/minute")
 @router.get('/', response_model=list[PlanResponse])
+@limiter.limit("5/minute")
 def get_plans(request: Request, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return service.get_all_plans(db)
 
 
 # Update plan
-@limiter.limit("5/minute")
 @router.patch('/{plan_id}', response_model=PlanResponse)
+@limiter.limit("5/minute")
 def update_plan(request: Request, plan_id : int, plan_update : PlanUpdate, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
     return service.update_plan(db, plan_id, plan_update)
 
 
 # Deactivate (delete) plans
-@limiter.limit("5/minute")
 @router.delete('/{plan_id}', response_model=PlanResponse)
+@limiter.limit("5/minute")
 def deactivate_plan(request: Request, plan_id : int, db : Session = Depends(get_db), current_user = Depends(get_current_user)):
     return service.deactivate_plan(db, plan_id)
