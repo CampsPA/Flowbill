@@ -21,14 +21,14 @@ logger = logging.getLogger("app.payments.router")
 router = APIRouter(tags=['Payments'])
 
 # Create an endpoint to return all payment attempts for a given invoice
-@router.get('/invoice/{invoice_id}', response_model=list[PaymentAttemptResponse])
 @limiter.limit("5/minute")
+@router.get('/invoice/{invoice_id}', response_model=list[PaymentAttemptResponse])
 def get_all_payment_attempts(request: Request, invoice_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     return repository.fetch_all_payment_attempts(db, invoice_id)
 
 # Create an endpoint to return a single payment attempt by ID, given an invoice
-@router.get('/invoice/{invoice_id}/attempts/{attempt_id}', response_model=PaymentAttemptResponse)
 @limiter.limit("5/minute")
+@router.get('/invoice/{invoice_id}/attempts/{attempt_id}', response_model=PaymentAttemptResponse)
 def get_payment_attempt(request: Request, invoice_id: int, attempt_id : int, db:Session = Depends(get_db), current_user= Depends(get_current_user)):
     payment_attempt = repository.fetch_payment_attempt(db, invoice_id,attempt_id)
 

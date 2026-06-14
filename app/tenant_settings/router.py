@@ -18,13 +18,13 @@ router = APIRouter(tags=['Tenants Settings'])
 
 
 # Create an endpoint to create/update tenant settings - upserting for logged-in customer
-@router.put('/{customer_id}', response_model= TenantSettingsResponse)
 @limiter.limit("5/minute")
+@router.put('/{customer_id}', response_model= TenantSettingsResponse)
 def upsert(request: Request, customer_id: int, tenant_settings_update : TenantSettingsUpdate, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
     return service.upsert_settings(db, customer_id, tenant_settings_update)
 
 # Create an endpoint to retrieve settings for logged-in customers
-@router.get('/{customer_id}', response_model= TenantSettingsResponse)
 @limiter.limit("5/minute")
+@router.get('/{customer_id}', response_model= TenantSettingsResponse)
 def get_settings(request: Request, customer_id: int, db:Session = Depends(get_db), current_user = Depends(get_current_user)):
     return service.get_settings(db, customer_id)
