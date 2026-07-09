@@ -6,7 +6,12 @@ from app.subscriptions.model import Subscription
 from app.invoices.model import Invoice
 from app.payments.model import PaymentAttempt
 from app.plans.model import Plan
-from app.core.enums import SubscriptionStatus, InvoiceStatus, PaymentAttemptStatus, PlanInterval
+from app.core.enums import (
+    SubscriptionStatus,
+    InvoiceStatus,
+    PaymentAttemptStatus,
+    PlanInterval,
+)
 from datetime import datetime, timezone, timedelta
 import stripe
 import logging
@@ -24,73 +29,115 @@ from app.customers.model import Customer
 from app.tenant_settings.model import TenantSettings
 
 
+"""
+Billing cycle runner for FlowBill.
+
+Handles automated subscription billing by charging due subscriptions,
+generating invoices, and advancing billing periods. Invoked on a 24h
+APScheduler job and via the manual POST /billing/run endpoint.
+"""
+
+
 logger = logging.getLogger("app.billing.cycle_runner")
 
 
 def run_billing_cycle():
+    """Charge all due active subscriptions and advance their billing periods.
+
+    Invoked on a 24h APScheduler job and by the manual ``POST /billing/run``
+    endpoint. For each active subscription whose period has ended (and is not
+    set to cancel), it creates an OPEN invoice (skipping duplicates), charges
+    the customer via Stripe, and on success emails a PDF invoice, records the
+    payment, and rolls the subscription forward one interval. Failed charges
+    leave the invoice OPEN for the dunning job to retry. Manages its own
+    ``SessionLocal`` session since it runs outside a request context.
+    """
     # Create a database session
     db = SessionLocal()
     try:
         # Query subscriptions
-        subscriptions = db.execute(select(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE).where(Subscription.current_period_end <= datetime.now(timezone.utc)).where(Subscription.cancel_at_period_end == False)).scalars().all()
+        subscriptions = (
+            db.execute(
+                select(Subscription)
+                .where(Subscription.status == SubscriptionStatus.ACTIVE)
+                .where(Subscription.current_period_end <= datetime.now(timezone.utc))
+                .where(Subscription.cancel_at_period_end == False)
+            )
+            .scalars()
+            .all()
+        )
 
         # Create invoice
         for subscription in subscriptions:
             # Fetch the plan price
-            plan_price = db.execute(select(Plan).where(Plan.id == subscription.plan_id)).scalar_one_or_none()
+            plan_price = db.execute(
+                select(Plan).where(Plan.id == subscription.plan_id)
+            ).scalar_one_or_none()
 
             # Add a check to prevent creating duplicate invoices
-            invoice_check = db.execute(select(Invoice).where(Invoice.subscription_id == subscription.id).where(Invoice.status == InvoiceStatus.OPEN)).scalars().first()
-            
+            invoice_check = (
+                db.execute(
+                    select(Invoice)
+                    .where(Invoice.subscription_id == subscription.id)
+                    .where(Invoice.status == InvoiceStatus.OPEN)
+                )
+                .scalars()
+                .first()
+            )
+
             if invoice_check is not None:
                 continue
 
             # Create the invoice
-            new_invoice = Invoice(subscription_id = subscription.id,customer_id = subscription.customer_id,
-                                amount_cents = plan_price.price_cents,currency = 'usd',
-                                due_date = datetime.now(timezone.utc) + timedelta(days=30),
-                                status = InvoiceStatus.OPEN)
+            new_invoice = Invoice(
+                subscription_id=subscription.id,
+                customer_id=subscription.customer_id,
+                amount_cents=plan_price.price_cents,
+                currency="usd",
+                due_date=datetime.now(timezone.utc) + timedelta(days=30),
+                status=InvoiceStatus.OPEN,
+            )
             # Add invoice
             db.add(new_invoice)
             db.commit()
             db.refresh(new_invoice)
-
 
             # Attempt payment - if succeed mark invoice as paid
             try:
                 payment_intent = stripe.PaymentIntent.create(
                     amount=new_invoice.amount_cents,
                     currency="usd",
-                    customer = "placeholder_stripe_customer_id",
-                    payment_method= "place_holder_customer_id",
-                    off_session= True,
-                    confirm= True)
+                    customer="placeholder_stripe_customer_id",
+                    payment_method="place_holder_customer_id",
+                    off_session=True,
+                    confirm=True,
+                )
                 # Log payment processed message
                 logger.info(f"Payment successful: {payment_intent.id}")
-
 
                 # Payment success handling (sucess)
                 new_invoice.status = InvoiceStatus.PAID
 
-
-
                 # Generate PDF bytes -> fetch customer by id, tenants_settings by customer_id, use new_invoice instead of invoice
                 try:
-                    customer = customer_repository.get_customer_by_id(db,new_invoice.customer_id)
-                    tenant_settings = tenant_settings_repository.get_by_customer_id(db, new_invoice.customer_id)
-                    pdf_bytes = generate_invoice_pdf(new_invoice, customer, tenant_settings)
+                    customer = customer_repository.get_customer_by_id(
+                        db, new_invoice.customer_id
+                    )
+                    tenant_settings = tenant_settings_repository.get_by_customer_id(
+                        db, new_invoice.customer_id
+                    )
+                    pdf_bytes = generate_invoice_pdf(
+                        new_invoice, customer, tenant_settings
+                    )
 
                     send_invoice_email(customer, new_invoice, pdf_bytes)
 
                 except Exception as e:
-                    logger.error(f'Email failed for invoice {new_invoice.id}: {e}')
+                    logger.error(f"Email failed for invoice {new_invoice.id}: {e}")
 
                 # To test this trigger the billing cycle manually:
                 # python -c "from app.billing.cycle_runner import run_billing_cycle; run_billing_cycle()"
                 # run the app to check the logs to see the output
-                
-
-
 
                 # Record payment date
                 new_invoice.paid_at = datetime.now(timezone.utc)
@@ -100,40 +147,47 @@ def run_billing_cycle():
                 # here I update the acutual subscription record, I dont create a new one
                 subscription.current_period_start = subscription.current_period_end
 
-
                 # Advance subscription period
                 if plan_price.interval == PlanInterval.MONTHLY:
-                    subscription.current_period_end = subscription.current_period_start + timedelta(days=30)
+                    subscription.current_period_end = (
+                        subscription.current_period_start + timedelta(days=30)
+                    )
                 elif plan_price.interval == PlanInterval.ANNUAL:
-                    subscription.current_period_end = subscription.current_period_start + timedelta(days=365) 
-                
-                # Log the payment attempt 
-                new_payment = PaymentAttempt(invoice_id = new_invoice.id,
-                                attempted_at = datetime.now(timezone.utc),
-                                status = PaymentAttemptStatus.SUCCEEDED,
-                                stripe_payment_intent_id = payment_intent.id,
-                                failure_reason = None)
-                
+                    subscription.current_period_end = (
+                        subscription.current_period_start + timedelta(days=365)
+                    )
+
+                # Log the payment attempt
+                new_payment = PaymentAttempt(
+                    invoice_id=new_invoice.id,
+                    attempted_at=datetime.now(timezone.utc),
+                    status=PaymentAttemptStatus.SUCCEEDED,
+                    stripe_payment_intent_id=payment_intent.id,
+                    failure_reason=None,
+                )
+
                 # Save all changes
                 db.add(new_payment)
                 db.commit()
-                db.refresh(new_invoice) # updates changes in the new invoice
-                db.refresh(subscription) # updates changes in the subscription
+                db.refresh(new_invoice)  # updates changes in the new invoice
+                db.refresh(subscription)  # updates changes in the subscription
 
                 # Log successfull payment
                 logger.info(f"Payment attempt logged for invoice {new_invoice.id}")
-                
+
             except (stripe.error.CardError, stripe.error.InvalidRequestError) as e:
                 # Payment failure handling
                 new_invoice.status = InvoiceStatus.OPEN
 
-                # Log the payment attempt 
-                new_payment = PaymentAttempt(invoice_id = new_invoice.id,
-                                attempted_at = datetime.now(timezone.utc),
-                                status = PaymentAttemptStatus.FAILED,
-                                stripe_payment_intent_id = "failed_" + str(new_invoice.id),
-                                failure_reason = str(e))
-                
+                # Log the payment attempt
+                new_payment = PaymentAttempt(
+                    invoice_id=new_invoice.id,
+                    attempted_at=datetime.now(timezone.utc),
+                    status=PaymentAttemptStatus.FAILED,
+                    stripe_payment_intent_id="failed_" + str(new_invoice.id),
+                    failure_reason=str(e),
+                )
+
                 # Save all changes
                 db.add(new_payment)
                 db.commit()
@@ -141,9 +195,5 @@ def run_billing_cycle():
                 # Log failed payment
                 logger.info(f"Payment failed for invoice {new_invoice.id}: {str(e)}")
 
-                
     finally:
         db.close()
-
-    
-              
